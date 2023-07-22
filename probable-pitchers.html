@@ -1,0 +1,743 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            background-color: black;
+            color: white;
+        }
+        
+        table th {
+            cursor: pointer;
+        }
+        
+        table td, table th {
+            padding: 10px;
+        }
+
+        table tr:nth-child(even) {
+            background-color: rgba(114,111,112,0.5);
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Rank</th>
+      <th>Last 15</th>
+      <th>Player</th>
+      <th>Sat Jul 22</th>
+      <th>Sun Jul 23</th>
+      <th>Mon Jul 24</th>
+      <th>Tue Jul 25</th>
+      <th>Wed Jul 26</th>
+      <th>Thu Jul 27</th>
+      <th>Fri Jul 28</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>87</td>
+      <td>89</td>
+      <td>B. Bello</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>ATL</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>48</td>
+      <td>100</td>
+      <td>J. Berrios</td>
+      <td></td>
+      <td></td>
+      <td>@LAD</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>51</td>
+      <td>104</td>
+      <td>T. Bibee</td>
+      <td>PHI</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>@CWS</td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>111</td>
+      <td>83</td>
+      <td>P. Blackburn</td>
+      <td>HOU</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>89</td>
+      <td>110</td>
+      <td>K. Bradish</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>@PHI</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>70</td>
+      <td>94</td>
+      <td>T. Bradley</td>
+      <td></td>
+      <td>BAL</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>36</td>
+      <td>85</td>
+      <td>H. Brown</td>
+      <td></td>
+      <td>@OAK</td>
+      <td>TEX</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>91</td>
+      <td>90</td>
+      <td>G. Canning</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>@DET</td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>32</td>
+      <td>97</td>
+      <td>D. Cease</td>
+      <td>@MIN</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>CLE</td>
+    </tr>
+    <tr>
+      <th>9</th>
+      <td>47</td>
+      <td>111</td>
+      <td>A. Civale</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>KC</td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>10</th>
+      <td>61</td>
+      <td>86</td>
+      <td>R. Detmers</td>
+      <td>PIT</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>11</th>
+      <td>79</td>
+      <td>72</td>
+      <td>B. Elder</td>
+      <td></td>
+      <td>@MIL</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>12</th>
+      <td>63</td>
+      <td>104</td>
+      <td>B. Garrett</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>DET</td>
+    </tr>
+    <tr>
+      <th>13</th>
+      <td>30</td>
+      <td>113</td>
+      <td>L. Gilbert</td>
+      <td>TOR</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>@ARI</td>
+    </tr>
+    <tr>
+      <th>14</th>
+      <td>40</td>
+      <td>91</td>
+      <td>L. Giolito</td>
+      <td></td>
+      <td>@MIN</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>15</th>
+      <td></td>
+      <td></td>
+      <td>H. Greene</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>16</th>
+      <td>134</td>
+      <td>96</td>
+      <td>H. Harris</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>@SF</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>17</th>
+      <td></td>
+      <td></td>
+      <td>M. Kelly</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>18</th>
+      <td>82</td>
+      <td>105</td>
+      <td>Y. Kikuchi</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>@LAD</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>19</th>
+      <td>28</td>
+      <td>108</td>
+      <td>G. Kirby</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>@MIN</td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>20</th>
+      <td>124</td>
+      <td>95</td>
+      <td>M. Kopech</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>CHC</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>21</th>
+      <td>104</td>
+      <td>101</td>
+      <td>D. Kremer</td>
+      <td></td>
+      <td></td>
+      <td>@PHI</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>22</th>
+      <td>29</td>
+      <td>87</td>
+      <td>P. Lopez</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>SEA</td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>23</th>
+      <td>59</td>
+      <td>104</td>
+      <td>B. Miller</td>
+      <td>@TEX</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>@MIN</td>
+      <td></td>
+      <td>CIN</td>
+    </tr>
+    <tr>
+      <th>24</th>
+      <td></td>
+      <td>104</td>
+      <td>B. Miller</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>25</th>
+      <td>19</td>
+      <td>121</td>
+      <td>J. Musgrove</td>
+      <td></td>
+      <td>@DET</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>26</th>
+      <td>55</td>
+      <td>103</td>
+      <td>B. Ober</td>
+      <td></td>
+      <td>CWS</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>27</th>
+      <td>133</td>
+      <td>101</td>
+      <td>J. Oviedo</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>@SD</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>28</th>
+      <td>53</td>
+      <td>92</td>
+      <td>J. Paxton</td>
+      <td>NYM</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>29</th>
+      <td>38</td>
+      <td>100</td>
+      <td>F. Peralta</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>CIN</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>30</th>
+      <td></td>
+      <td></td>
+      <td>E. Perez</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>31</th>
+      <td></td>
+      <td></td>
+      <td>C. Quantrill</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>32</th>
+      <td>43</td>
+      <td>112</td>
+      <td>E. Rodriguez</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>LAA</td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>33</th>
+      <td>65</td>
+      <td>107</td>
+      <td>P. Sandoval</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>@DET</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>34</th>
+      <td>66</td>
+      <td>98</td>
+      <td>J. Sears</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>@COL</td>
+    </tr>
+    <tr>
+      <th>35</th>
+      <td>27</td>
+      <td>105</td>
+      <td>K. Senga</td>
+      <td>@BOS</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>WSH</td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>36</th>
+      <td>116</td>
+      <td>93</td>
+      <td>E. Sheehan</td>
+      <td></td>
+      <td>@TEX</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>37</th>
+      <td>118</td>
+      <td>91</td>
+      <td>B. Singer</td>
+      <td>@NYY</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>MIN</td>
+    </tr>
+    <tr>
+      <th>38</th>
+      <td>21</td>
+      <td>109</td>
+      <td>B. Snell</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>PIT</td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>39</th>
+      <td>54</td>
+      <td>87</td>
+      <td>R. Suarez</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>BAL</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>40</th>
+      <td>185</td>
+      <td>89</td>
+      <td>J. Teheran</td>
+      <td></td>
+      <td>ATL</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>41</th>
+      <td></td>
+      <td></td>
+      <td>M. Wacha</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>42</th>
+      <td>93</td>
+      <td>97</td>
+      <td>T. Walker</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>BAL</td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>43</th>
+      <td>49</td>
+      <td>90</td>
+      <td>T. Wells</td>
+      <td></td>
+      <td>@TB</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>44</th>
+      <td>114</td>
+      <td>91</td>
+      <td>B. Woo</td>
+      <td></td>
+      <td>TOR</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>45</th>
+      <td>22</td>
+      <td>104</td>
+      <td>Y. Darvish</td>
+      <td></td>
+      <td></td>
+      <td>PIT</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>46</th>
+      <td>115</td>
+      <td>112</td>
+      <td>M. Manning</td>
+      <td>SD</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>@MIA</td>
+    </tr>
+    <tr>
+      <th>47</th>
+      <td>100</td>
+      <td>114</td>
+      <td>M. Lorenzen</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td>LAA</td>
+      <td></td>
+      <td></td>
+    </tr>
+    <tr>
+      <th>48</th>
+      <td></td>
+      <td>113</td>
+      <td>N. Pivetta</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+  </tbody>
+</table>
+<script>
+function makeTableSortable(table) {
+    // Get all the headers of the table
+    var headers = table.querySelectorAll('th');
+    
+    // Loop through each header
+    headers.forEach(function(header, index) {
+        // Add a click event listener to the header
+        header.addEventListener('click', function() {
+            // Get the current sort direction
+            var direction = header.getAttribute('data-sort') || 'asc';
+            
+            // Reverse the direction
+            direction = (direction === 'asc') ? 'desc' : 'asc';
+            
+            // Get all the rows of the table
+            var rows = Array.from(table.querySelectorAll('tr'));
+            
+            // Remove the header row
+            var headerRow = rows.shift();
+            
+            // Sort the rows
+            rows.sort(function(rowA, rowB) {
+                var cellA = rowA.children[index].textContent;
+                var cellB = rowB.children[index].textContent;
+                
+                if (!isNaN(cellA) && !isNaN(cellB)) {
+                    // Parse cells as numbers
+                    cellA = parseFloat(cellA);
+                    cellB = parseFloat(cellB);
+                }
+                
+                if (cellA < cellB) return direction === 'asc' ? -1 : 1;
+                if (cellA > cellB) return direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+            
+            // Clear the table
+            while (table.firstChild) {
+                table.firstChild.remove();
+            }
+            
+            // Add the sorted rows back to the table
+            table.appendChild(headerRow);
+            rows.forEach(function(row) {
+                table.appendChild(row);
+            });
+            
+            // Update the sort direction
+            header.setAttribute('data-sort', direction);
+        });
+    });
+}
+
+// Make all tables sortable when the page loads
+window.addEventListener('DOMContentLoaded', function() {
+    var tables = document.querySelectorAll('table');
+    tables.forEach(makeTableSortable);
+});
+</script>
+</body>
+</html>
