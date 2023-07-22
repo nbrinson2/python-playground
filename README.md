@@ -21,8 +21,11 @@ pip install requests beautifulsoup4 pandas
 ## Usage
 
 Specify the list of players you're interested in by providing their full names and short names in the full_names and player_names variables respectively.
+
+```python
 full_names = ['Brayan Bello', 'Jose Berrios', ...]
 player_names = ['B. Bello', 'J. Berrios', ...]
+```
 
 Run the script. It will scrape the data from the website for each player listed, output the DataFrame in the console, and write it as an HTML file (probable-pitchers.html) in your local directory.
 
