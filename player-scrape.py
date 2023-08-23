@@ -32,6 +32,8 @@ def get_last_15_data(player_names):
                     h_data = float(cells[10].text)
                     # 'BB' data is in the twelfth column
                     bb_data = float(cells[11].text)
+                    if bb_data == 0:
+                        bb_data = 1
                     # 'HR' data is in the thirteenth column
                     hr_data = float(cells[12].text)
                     # 'L' data is in the sixteenth column
