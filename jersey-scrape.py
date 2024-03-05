@@ -77,25 +77,6 @@ def scrape_shoprsa(url):
     else:
         print('Failed to retrieve the initial page for pagination details.')
 
-
-def clean_priceog(raw_price):
-    # First, try to find the sale price in the raw_price string
-    sale_price_match = re.search(r'Sale price\$ (\d+)', raw_price.replace(',', ''))
-    if sale_price_match:
-        # If a sale price is found, use it
-        price_numeric = int(sale_price_match.group(1))
-    else:
-        # If no sale price, try to extract any price
-        price_match = re.search(r'\$\s*(\d+)', raw_price.replace(',', ''))
-        if price_match:
-            price_numeric = int(price_match.group(1))
-        else:
-            return 'Price not available'
-    
-    # Format the price with commas and prepend a dollar sign
-    formatted_price = f"${price_numeric:,}"
-    return formatted_price
-
 def scrape_shoplegends(url):
     current_page = 1
     last_page = None  # We will set this after finding the number of pages
