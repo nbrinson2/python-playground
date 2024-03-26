@@ -20,6 +20,7 @@ mlb_teams = [
     "Red Sox",
     "White Sox",
     "Cubs",
+    "Expos",
     "Reds",
     "Guardians",
     "Rockies",
@@ -46,31 +47,199 @@ mlb_teams = [
     "Nationals"
 ]
 
+mlb_team_cities = [
+    "Arizona",
+    "Atlanta", 
+    "Baltimore",
+    "Boston",
+    "Brooklyn",
+    "Chicago",
+    "Cleveland",
+    "Cincinnati",
+    "Colorado",
+    "Detroit",
+    "Florida",
+    "Houston",
+    "Kansas City",
+    "Los Angeles",
+    "Miami",
+    "Milwaukee",
+    "Minnesota",
+    "Montreal",
+    "New York",
+    "Oakland",
+    "Philadelphia",
+    "Pittsburgh",
+    "San Diego",
+    "San Francisco",
+    "Seattle",
+    "St. Louis",
+    "St Louis",
+    "Tampa Bay",
+    "Texas",
+    "Toronto",
+    "Washington"
+]
+
+city_to_team = {
+    "Arizona": "Diamondbacks",
+    "Atlanta": "Braves", 
+    "Baltimore": "Orioles",
+    "Boston": "Red Sox",
+    "Brooklyn": "Dodgers",
+    "Chicago": ["White Sox", "Cubs"],  # Special case: two teams
+    "Cleveland": "Guardians",
+    "Cincinnati": "Reds",
+    "Colorado": "Rockies",
+    "Detroit": "Tigers",
+    "Florida": "Marlins",
+    "Houston": "Astros",
+    "Kansas City": "Royals",
+    "Los Angeles": ["Dodgers", "Angels"],  # Special case: two teams
+    "Miami": "Marlins",
+    "Milwaukee": "Brewers",
+    "Minnesota": "Twins",
+    "Montreal": "Expos",
+    "New York": ["Yankees", "Mets"],  # Special case: two teams
+    "Oakland": "Athletics",
+    "Philadelphia": "Phillies",
+    "Pittsburgh": "Pirates",
+    "San Diego": "Padres",
+    "San Francisco": "Giants",
+    "Seattle": "Mariners",
+    "St. Louis": "Cardinals",
+    "St Louis": "Cardinals",
+    "Tampa Bay": "Rays",
+    "Texas": "Rangers",
+    "Toronto": "Blue Jays",
+    "Washington": "Nationals"
+}
+
+player_to_team_combined = {
+    "Aaron Judge": "Yankees",
+    "Alex Rodriguez": "Yankees",
+    "Alfonso Soriano": "Yankees",
+    "Andre Dawson": "Cubs",
+    "Andrew Vaughn": "White Sox",
+    "Aroldis Chapman": "Yankees",
+    "Bo Jackson": "White Sox",
+    "Bobby Bonilla": "Mets",
+    "Bobby Richardson": "Yankees",
+    "Bret Saberhagen": "Mets",
+    "Carl Everett": "White Sox",
+    "Carlton Fisk": "Red Sox",
+    "Cecil Fielder": "Yankees",
+    "Charlie Hayes": "Yankees",
+    "Chris Chambliss": "Yankees",
+    "Chris Taylor": "Dodgers",
+    "Chuck Knoblauch": "Yankees",
+    "Clayton Kershaw": "Dodgers",
+    "Cleon Jones": "Mets",
+    "Dave Kingman": "Mets",
+    "Dave Righetti": "Yankees",
+    "Dave Winfield": "Yankees",
+    "Derek Jeter": "Yankees",
+    "Domingo German": "Yankees",
+    "Don Larsen": "Yankees",
+    "Don Sutton": "Dodgers",
+    "Dwight Gooden": "Mets",
+    "Darryl Strawberry": "Mets",
+    "Ed Kranepool": "Mets",
+    "Eric Gagne": "Dodgers",
+    "Fergie Jenkins": "Cubs",
+    "Francisco Alvarez": "Mets",
+    "Frank Thomas": "White Sox",
+    "Gary Sheffield": "Yankees",
+    "Geoff Blum": "White Sox",
+    "Gleyber Torres": "Yankees",
+    "Goose Gossage": "Yankees",
+    "Gregg Jefferies": "Mets",
+    "Howard Johnson": "Mets",
+    "Jacob DeGrom": "Mets",
+    "Jason Giambi": "Yankees",
+    "Jermaine Dye": "White Sox",
+    "Jerome Walton": "Cubs",
+    "Joe Girardi": "Yankees",
+    "Joe Torre": "Yankees",
+    "John Franco": "Mets",
+    "John Wetteland": "Yankees",
+    "Jose Ramirez": "Guardians",
+    "Juan Soto": "Yankees",
+    "Keith Foulke": "White Sox",
+    "Keith Hernandez": "Mets",
+    "Kevin McReynolds": "Mets",
+    "Lee Smith": "Cubs",
+    "Lenny Dykstra": "Mets",
+    "Lou Piniella": "Yankees",
+    "Luis Robert": "White Sox",
+    "Mariano Rivera": "Yankees",
+    "Mark Grace": "Cubs",
+    "Mookie Betts": "Dodgers",
+    "Mike Piazza": "Mets",
+    "Mike Trout": "Angels",
+    "Nico Hoerner": "Cubs",
+    "Oswaldo Cabrera": "Yankees",
+    "Ozzie Guillen": "White Sox",
+    "Pete Alonso": "Mets",
+    "Rafael Palmeiro": "Cubs",
+    "Reggie Jackson": "Yankees",
+    "Rod Carew": "Angels",
+    "Ron Darling": "Mets",
+    "Ron Swoboda": "Mets",
+    "Ronny Mauricio": "Mets",
+    "Scott Brosius": "Yankees",
+    "Shane Spencer": "Yankees",
+    "Shawon Dunston": "Cubs",
+    "Sid Fernandez": "Mets",
+    "Starlin Castro": "Cubs",
+    "Steve Garvey": "Dodgers",
+    "Steve Sax": "Dodgers",
+    "Tim Raines": "Yankees",
+    "Tino Martinez": "Yankees",
+    "Vladimir Guerrero": "Angels",
+    "Wade Boggs": "Yankees",
+    "Walker Buehler": "Dodgers",
+    "Yasiel Puig": "Dodgers",
+    "Yermin Mercedes": "White Sox",
+}
+
 mlb_divisions = [
     {
         "division": "AL East",
-        "teams": ["Orioles", "Red Sox", "Yankees", "Rays", "Blue Jays"]
+        "teams": ["Orioles", "Red Sox", "Yankees", "Rays", "Blue Jays"],
+        "cities": ["Baltimore", "Boston", "New York", "Tampa Bay", "Toronto"]
     },
     {
         "division": "AL Central",
-        "teams": ["White Sox", "Guardians", "Tigers", "Royals", "Twins"]
+        "teams": ["White Sox", "Guardians", "Tigers", "Royals", "Twins"],
+        "cities": ["Chicago", "Cleveland", "Detroit", "Kansas City", "Minnesota"]
     },
     {
         "division": "AL West",
-        "teams": ["Astros", "Angels", "Athletics", "Mariners", "Rangers"]
+        "teams": ["Astros", "Angels", "Athletics", "Mariners", "Rangers"],
+        "cities": ["Houston", "Los Angeles", "Oakland", "Seattle", "Texas"]
     },
     {
         "division": "NL East",
-        "teams": ["Braves", "Marlins", "Mets", "Phillies", "Nationals"]
+        "teams": ["Braves", "Marlins", "Mets", "Phillies", "Nationals"],
+        "cities": ["Atlanta", "Florida", "Miami", "New York", "Philadelphia", "Washington"]
     },
     {
         "division": "NL Central",
-        "teams": ["Cubs", "Reds", "Brewers", "Pirates", "Cardinals"]
+        "teams": ["Cubs", "Reds", "Brewers", "Pirates", "Cardinals"],
+        "cities": ["Chicago", "Cincinnati", "Milwaukee", "Pittsburgh", "St. Louis"]
     },
     {
         "division": "NL West",
-        "teams": ["Diamondbacks", "Rockies", "Dodgers", "Padres", "Giants"]
+        "teams": ["Diamondbacks", "Rockies", "Dodgers", "Padres", "Giants"],
+        "cities": ["Arizona", "Colorado", "Los Angeles", "San Diego", "San Francisco"]
     }
+]
+
+authentic_keywords = [
+    "Authentic",
+    "Nike",
+    "Mitchell & Ness",
 ]
 
 
@@ -105,7 +274,7 @@ def generic_scrape(pagination_url_format, jersey_list_selector, jersey_processor
                 processed_value = processor(jersey_element) if callable(processor) else processor
                 jersey_data[key] = processed_value
                 # Specifically check the Description for 'jersey' keyword
-                if key == "Description" and processed_value and ('jersey' not in processed_value.lower() or 'card' in processed_value.lower() or 'photo' in processed_value.lower()):
+                if key == "Description" and processed_value and ('jersey' not in processed_value.lower() or 'jr' in processed_value.lower(), 'card' in processed_value.lower() or 'photo' in processed_value.lower()):
                     include_jersey = False
                     break
             if include_jersey and jersey_data.get("Price") and jersey_data["Price"] != 'Price not available':
@@ -121,9 +290,28 @@ def get_division(team):
             return division["division"]
 
 def get_team_from_description(description):
+    for player, team in player_to_team.items():
+        if player.lower() in description.lower():
+            return team
+        
     for team in mlb_teams:
         if team.lower() in description.lower():
             return team
+
+    # Check each team and city in the mapping
+    for city, teams in city_to_team.items():
+        if city.lower() in description.lower():
+            # If the city has multiple teams, additional context is needed
+            if isinstance(teams, list):
+                # Attempt to determine the team based on known players
+                for team in teams:
+                    for player, player_team in player_to_team.items():
+                        if team == player_team and player.lower() in description.lower():
+                            return team
+                return ', '.join(teams)  # Return a list of teams if unable to determine
+            else:
+                return teams
+                
     return "Miscellaneous"
 
 def scrape_shoprsa():
@@ -419,10 +607,12 @@ def scrape_steelcitycollectibles_with_chrome():
         print("Number of products found:", len(product_elements))
         for product_element in product_elements:
             name_element = product_element.find_element(By.CSS_SELECTOR, '.pr-info .pr-title a')
+            name = name_element.text.strip()
+            if 'basketball' in name.lower() or 'football' in name.lower() or 'hockey' in name.lower():
+                continue
             price_element = product_element.find_element(By.CSS_SELECTOR, '.pr-price')
             link_element = product_element.find_element(By.CSS_SELECTOR, '.pr-image a')
 
-            name = name_element.text.strip()
             team = get_team_from_description(name)
             division = get_division(team)
 
@@ -477,12 +667,12 @@ def clean_price(price_str):
 
 def scrape_jerseys():
     jerseys = []
-    # jerseys.extend(scrape_sportsintegrity())
-    # jerseys.extend(scrape_shoplegends())
-    # jerseys.extend(scrape_shoprsa())
-    # jerseys.extend(scrape_hollywoodcollectibles())
+    jerseys.extend(scrape_sportsintegrity())
+    jerseys.extend(scrape_shoplegends())
+    jerseys.extend(scrape_shoprsa())
+    jerseys.extend(scrape_hollywoodcollectibles())
     jerseys.extend(scrape_steelcitycollectibles_with_chrome())
-    # jerseys.extend(scrape_fanaticsauthentics_with_chrome())
+    jerseys.extend(scrape_fanaticsauthentics_with_chrome())
     return jerseys
 
 jerseys = scrape_jerseys()
@@ -493,10 +683,14 @@ print(df_jerseys.columns)
 
 # Convert the DataFrame to HTML, making the 'Link' column hyperlinks
 df_jerseys['Link'] = df_jerseys['Link'].apply(lambda x: f'<a href="{x}" target="_blank">Link</a>')
-df_jerseys['Description'] = df_jerseys['Description'].apply(lambda x: x.replace('Authentic', '<b>Authentic</b>'))
 
 # Add the 'Style' column based on the 'Description' column content
-df_jerseys['Style'] = df_jerseys['Description'].apply(lambda x: 'Authentic' if 'Authentic' in x else 'Custom')
+df_jerseys['Style'] = df_jerseys['Description'].apply(
+    lambda x: 'Authentic' if any(keyword in x for keyword in authentic_keywords) else 'Custom'
+)
+df_jerseys['Style'] = df_jerseys['Style'].apply(
+    lambda style: f"<b>{style}</b>" if style == 'Authentic' else style
+)
 
 html_table = df_jerseys.to_html(escape=False)
 
