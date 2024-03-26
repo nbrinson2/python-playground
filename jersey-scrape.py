@@ -13,234 +13,296 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 start_time = time.time()  # Record start time
 
-# Target URL
-base_url_shoprsa = 'https://www.shoprsa.com/collections/signed-baseball-jerseys'
-page_size_fanaticsauthentics = 96
-base_url_fanaticsauthentics_template = 'https://www.fanaticsauthentic.com/mlb-authentic/jerseys-autographed/o-5676+d-74006653+fa-01+z-812-1128347476?pageSize={}&sortOption=TopSellers'
-base_url_shoplegends = 'https://shoplegends.com/collections/jerseys'
-base_url_sportsintegrity = 'https://www.sportsintegrity.com/collections/signed-mlb-baseball-jerseys'
-base_url_hollywoodcollectibles = 'https://hollywoodcollectibles.com/collections/autographed-jerseys'
-base_url_steelcitycollectibles = 'https://www.steelcitycollectibles.com/c/autographs/baseball?item_type=jersey&sport=baseball'
+mlb_teams = [
+    "Diamondbacks",
+    "Braves",
+    "Orioles",
+    "Red Sox",
+    "White Sox",
+    "Cubs",
+    "Reds",
+    "Guardians",
+    "Rockies",
+    "Tigers",
+    "Astros",
+    "Royals",
+    "Angels",
+    "Dodgers",
+    "Marlins",
+    "Brewers",
+    "Twins",
+    "Yankees",
+    "Mets",
+    "Athletics",
+    "Phillies",
+    "Pirates",
+    "Padres",
+    "Giants",
+    "Mariners",
+    "Cardinals",
+    "Rays",
+    "Rangers",
+    "Blue Jays",
+    "Nationals"
+]
+
+mlb_divisions = [
+    {
+        "division": "AL East",
+        "teams": ["Orioles", "Red Sox", "Yankees", "Rays", "Blue Jays"]
+    },
+    {
+        "division": "AL Central",
+        "teams": ["White Sox", "Guardians", "Tigers", "Royals", "Twins"]
+    },
+    {
+        "division": "AL West",
+        "teams": ["Astros", "Angels", "Athletics", "Mariners", "Rangers"]
+    },
+    {
+        "division": "NL East",
+        "teams": ["Braves", "Marlins", "Mets", "Phillies", "Nationals"]
+    },
+    {
+        "division": "NL Central",
+        "teams": ["Cubs", "Reds", "Brewers", "Pirates", "Cardinals"]
+    },
+    {
+        "division": "NL West",
+        "teams": ["Diamondbacks", "Rockies", "Dodgers", "Padres", "Giants"]
+    }
+]
 
 
-# Format the base URL with the dynamic page size
-base_url_fanaticsauthentics = base_url_fanaticsauthentics_template.format(page_size_fanaticsauthentics)
+def generic_scrape(pagination_url_format, jersey_list_selector, jersey_processors, get_total_pages):
+    jerseys = []
+    page_number = 1
 
-jerseys = []    
+    # Fetch the initial page to determine the total number of pages
+    initial_page_url = pagination_url_format.format(1)
+    response = requests.get(initial_page_url)
+    if response.status_code != 200:
+        print('Failed to retrieve the initial page for pagination details.')
+        return jerseys
+    soup = BeautifulSoup(response.text, 'html.parser')
 
-def scrape_shoprsa(url):
-    start_page = 1  # Start from the first page
+    # Use the provided get_total_pages function to determine the total number of pages
+    total_pages = get_total_pages(soup)
 
-    # Fetch the initial page to parse the total number of pages
-    initial_response = requests.get(f'{url}?page=1&grid_list=grid-view')
-    if initial_response.status_code == 200:
-        soup = BeautifulSoup(initial_response.text, 'html.parser')
+    while page_number <= total_pages:
+        page_url = pagination_url_format.format(page_number)
+        print("URL: ", page_url)
+        response = requests.get(page_url)
+        if response.status_code != 200:
+            print(f"Failed to retrieve page {page_number}.")
+            break
+        soup = BeautifulSoup(response.text, 'html.parser')
+        jersey_elements = soup.select(jersey_list_selector)
+        for jersey_element in jersey_elements:
+            jersey_data = {}
+            include_jersey = True
+            for key, processor in jersey_processors.items():
+                processed_value = processor(jersey_element) if callable(processor) else processor
+                jersey_data[key] = processed_value
+                # Specifically check the Description for 'jersey' keyword
+                if key == "Description" and processed_value and ('jersey' not in processed_value.lower() or 'card' in processed_value.lower() or 'photo' in processed_value.lower()):
+                    include_jersey = False
+                    break
+            if include_jersey and jersey_data.get("Price") and jersey_data["Price"] != 'Price not available':
+                jersey_data["Team"] = get_team_from_description(jersey_data["Description"])
+                jersey_data["Division"] = get_division(jersey_data["Team"])
+                jerseys.append(jersey_data)
+        page_number += 1
+    return jerseys
+
+def get_division(team):
+    for division in mlb_divisions:
+        if team in division["teams"]:
+            return division["division"]
+
+def get_team_from_description(description):
+    for team in mlb_teams:
+        if team.lower() in description.lower():
+            return team
+    return "Miscellaneous"
+
+def scrape_shoprsa():
+    base_url = 'https://www.shoprsa.com/collections/signed-baseball-jerseys'
+
+    def get_name(jersey):
+        name_tag = jersey.find('h2', class_='productitem--title')
+        if name_tag:
+            name = name_tag.text.strip()
+            name_parts = name.split(' ', 2)
+            return ' '.join(name_parts[:2])  # Assuming the first two words are the Name
+        return 'No name available'
+
+    def get_description(jersey):
+        name_tag = jersey.find('h2', class_='productitem--title')
+        if name_tag:
+            name = name_tag.text.strip()
+            name_parts = name.split(' ', 2)
+            if len(name_parts) > 2:
+                return name_parts[2]  # The rest is considered as Description
+        return 'No description'
+    
+    def get_price(jersey):
+        price_div = jersey.find('div', class_='price--main')
+        if price_div:
+            price_raw = price_div.find('span', class_='money').text.strip()
+            return clean_price(price_raw)
+        return 'Price not available'
+
+    def get_link(jersey):
+        link_tag = jersey.find('a', class_='productitem--image-link')
+        if link_tag:
+            return f"https://www.shoprsa.com{link_tag['href']}"
+        return 'No link available'
+        
+    def get_total_pages(soup):
         pagination_container = soup.find('nav', class_='pagination--container')
         if pagination_container:
             # Find the last numeric page link, which indicates the total number of pages
-            last_page_link = pagination_container.find_all('a', class_='pagination--item')[-2]  # Second last link is the last numeric page
-            total_pages = int(last_page_link.text.strip())
-        else:
-            total_pages = 1  # Default to 1 if pagination container is missing
-        for page in range(start_page, total_pages + 1):
-            page_url = f'{url}?page={page}&grid_list=grid-view'
-            response = requests.get(page_url)
+            last_page_link = pagination_container.find_all('a', class_='pagination--item')[-2]
+            return int(last_page_link.text.strip())
+        return 1
 
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.text, 'html.parser')
-                scraped_jerseys = soup.findAll('div', class_='productitem')
+    jersey_processors = {
+        "Name": get_name,
+        "Description": get_description,
+        "Price": get_price,
+        "Link": get_link,
+        "Website": "ShopRSA"
+    }
 
-                for jersey in scraped_jerseys:
-                    name = jersey.find('h2', class_='productitem--title').text.strip()
-                    # Assuming the first two words are the Name and the rest is Description
-                    name_parts = name.split(' ', 2)
-                    jersey_name = ' '.join(name_parts[:2])
-                    description = name_parts[2] if len(name_parts) > 2 else 'No description'
+    pagination_url_format = base_url + "?page={}&grid_list=grid-view"
+    return generic_scrape(pagination_url_format, 'div.productitem', jersey_processors, get_total_pages)
 
-                    # Price
-                    price_div = jersey.find('div', class_='price--main')
-                    price_raw = price_div.find('span', class_='money').text.strip() if price_div else 'Price not available'
-                    price = clean_price(price_raw)
+def scrape_shoplegends():
+    base_url = 'https://shoplegends.com/collections/jerseys'
 
-                    # Link
-                    link = jersey.find('a', class_='productitem--image-link')['href']
-                    full_link = f'https://www.shoprsa.com{link}'
+    def get_name(jersey):
+        name = jersey.select_one('.product-card__name').get_text(strip=True) if jersey.select_one('.product-card__name') else 'No name available'
+        name = ' '.join(name.split(' ')[:2])
+        if 'Unsigned' in name or 'UNSIGNED' in name:
+            return None
+        return name
 
-                    # Append jersey data
-                    jerseys.append({
-                        "Name": jersey_name,
-                        "Description": description,
-                        "Price": price,
-                        "Link": full_link,
-                        "Website": "ShopRSA"
-                    })
-    else:
-        print('Failed to retrieve the initial page for pagination details.')
-
-def scrape_shoplegends(url):
-    current_page = 1
-    last_page = None  # We will set this after finding the number of pages
-
-    while True:
-        if last_page and current_page > last_page:
-            break  # Exit the loop if we've processed all pages
-        
-        print(f"Scraping page: {current_page}")
-        url = f"{base_url_shoplegends}?page={current_page}"
-        response = requests.get(url)
-        if response.status_code != 200:
-            print(f"Failed to retrieve the webpage: {url}")
-            break  # Exit the loop if the page request fails
-        
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # Find all the jersey product cards on the current page
-        jersey_elements = soup.select('.grid__item .product-card')
-        for jersey in jersey_elements:
-
-            price_raw = jersey.select_one('.product-card__price').get_text(strip=True) if jersey.select_one('.product-card__price') else 'Price not available'
-            if price_raw == 'Price not available':
-                continue 
-            price = clean_price(price_raw)
-
-            name = jersey.select_one('.product-card__name').get_text(strip=True) if jersey.select_one('.product-card__name') else 'No name available'
-            name = ' '.join(name.split(' ')[:2])
-            if 'Unsigned' in name or 'UNSIGNED' in name:
-                continue
-
-            description = jersey.select_one('.product-card__image-wrapper img')['alt'] if jersey.select_one('.product-card__image-wrapper img') else 'No description available'
-            link_suffix = jersey['href'] if jersey.get('href') else ''
-            full_link = f'https://shoplegends.com{link_suffix}'
-
-            description = ' '.join(description.split(' ')[2:])
-
-            
-            jerseys.append({
-                "Name": name,
-                "Description": description,
-                "Price": price,
-                "Link": full_link,
-                "Website": "ShopLegends"
-            })
-        
-        # Set the last_page value if it's not already set
-        if last_page is None:
-            pagination_links = soup.select('.pagination .page a')
-            if pagination_links:
-                last_page = int(pagination_links[-1].get_text(strip=True))
-            else:  # If there's no pagination, assume only one page
-                last_page = 1
-        
-        current_page += 1  # Move to the next page
-
-
-def scrape_sportsintegrity(url):
-    page_number = 1
-
-    while True:
-        # Constructing URL for each page
-        paginated_url = f'{url}?page={page_number}'
-        print(f"Scraping page: {page_number}")
-        
-        # Fetch the page
-        response = requests.get(paginated_url)
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.content, 'html.parser')
-            
-            # Finding jersey items based on the provided HTML structure
-            jersey_elements = soup.find_all('div', class_='grid-item')
-            
-            if not jersey_elements:
-                break  # Exit loop if no items found on the page
-            
-            for jersey_element in jersey_elements:
-                name_tag = jersey_element.find('p')
-                name = name_tag.text.strip() if name_tag else 'No name available'
-                if name == 'No name available':
-                    continue
-
-                description = ' '.join(name.split(' ')[2:])
-                name = ' '.join(name.split(' ')[:2])
+    def get_description(jersey):
+        description = jersey.select_one('.product-card__image-wrapper img')['alt'] if jersey.select_one('.product-card__image-wrapper img') else 'No description available'
+        return ' '.join(description.split(' ')[2:])
                 
-                price_tag = jersey_element.find('small')
-                price_raw = price_tag.text.strip()
-                price = clean_price(price_raw)
+    def get_price(jersey):
+        price_raw = jersey.select_one('.product-card__price').get_text(strip=True) if jersey.select_one('.product-card__price') else 'Price not available'
+        return clean_price(price_raw)
 
-                if price == 'Price not available':
-                    continue
+    def get_link(jersey):
+        link_suffix = jersey['href'] if jersey.get('href') else ''
+        return f'https://shoplegends.com{link_suffix}'
 
-                link_tag = jersey_element.find('a', class_='product-grid-item')
-                link = link_tag['href'] if link_tag else 'No link available'
-                full_link = f'https://www.sportsintegrity.com{link}'
+    def get_total_pages(soup):
+        pagination_links = soup.select('.pagination .page a')
+        if pagination_links:
+            return int(pagination_links[-1].get_text(strip=True))
+        return 1
 
-                jerseys.append({
-                    "Name": name,
-                    "Description": description,
-                    "Price": price,
-                    "Link": full_link,
-                    "Website": "Sports Integrity"
-                })
-            
-            # Check for "next" link to decide if we should continue
-            next_page_link = soup.find('li', class_='disabled')
-            if next_page_link and '→' in next_page_link.text:
-                break  # If "next" is disabled, we've reached the last page
-            else:
-                page_number += 1
-        else:
-            print("Failed to retrieve the webpage")
-            break
+    jersey_processors = {
+        "Name": get_name,
+        "Description": get_description,
+        "Price": get_price,
+        "Link": get_link,
+        "Website": "ShopLegends"
+    }
 
-def scrape_hollywoodcollectibles(url):
-    page_number = 1
-    has_next_page = True
-    filter_suffix = '?filter.p.product_type=Autographed+Baseball+Jerseys'
-    while has_next_page:
-        # Constructing the URL for each page, including filtering for autographed baseball jerseys
-        paginated_url = f'{url}{filter_suffix}&page={page_number}'
-        print(f"Scraping page: {page_number}")
+    pagination_url_format = base_url + "?page={}"
+    return generic_scrape(pagination_url_format, '.grid__item .product-card', jersey_processors, get_total_pages)
 
-        # Fetch the page
-        response = requests.get(paginated_url)
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.content, 'html.parser')
+def scrape_sportsintegrity():
+    base_url = 'https://www.sportsintegrity.com/collections/signed-mlb-baseball-jerseys'
+    
+    def get_name(jersey):
+        name_tag = jersey.find('p')
+        name = name_tag.text.strip() if name_tag else 'No name available'
+        if name == 'No name available':
+            return None
+        return ' '.join(name.split(' ')[:2])
+    
+    def get_description(jersey):
+        name_tag = jersey.find('p')
+        name = name_tag.text.strip() if name_tag else 'No name available'
+        if name == 'No name available':
+            return None
+        return ' '.join(name.split(' ')[2:])
+    
+    def get_price(jersey):
+        price_div = jersey.find('div', class_='product-item--price')
+        price_raw = price_div.text.strip()
+        return clean_price(price_raw)
+    
+    def get_link(jersey):
+        link_tag = jersey.find('a', class_='product-grid-item')
+        link = link_tag['href'] if link_tag else 'No link available'
+        return f'https://www.sportsintegrity.com{link}'
+    
+    def get_total_pages(soup):
+        pagination_links = soup.select('.pagination-custom a')
+        if pagination_links:
+            return int(pagination_links[-2].get_text(strip=True))
+        return 1
+        
+    jersey_processors = {
+        "Name": get_name,
+        "Description": get_description,
+        "Price": get_price,
+        "Link": get_link,
+        "Website": "Sports Integrity"
+    }
+    
+    pagination_url_format = base_url + "?page={}"
+    return generic_scrape(pagination_url_format, '.grid-uniform .grid-item', jersey_processors, get_total_pages)
 
-            # Finding jersey items
-            jersey_elements = soup.find_all('div', class_='product')
-            if not jersey_elements:
-                print("No more products found.")
-                break  # Exit loop if no items found on the page
+def scrape_hollywoodcollectibles():
+    base_url = 'https://hollywoodcollectibles.com'
+    url_filter = '/collections/mlb-all'
+    sorting_suffix = '&sort_by=price-descending'
 
-            for jersey_element in jersey_elements:
-                name_tag = jersey_element.find('h4')
-                name = name_tag.text.strip() if name_tag else 'No name available'
+    def get_name(jersey):
+        name_tag = jersey.find('h4')
+        name = name_tag.text.strip() if name_tag else 'No name available'
+        if name == 'No name available':
+            return None
+        return ' '.join(name.split(' ')[:2])
+    
+    def get_description(jersey):
+        name_tag = jersey.find('h4')
+        name = name_tag.text.strip() if name_tag else 'No name available'
+        if name == 'No name available':
+            return None
+        return ' '.join(name.split(' ')[2:])
+    
+    def get_price(jersey):
+        price_tag = jersey.find('h6')
+        price_raw = price_tag.text.strip() if price_tag else 'Price not available'
+        return clean_price(price_raw)
+    
+    def get_link(jersey):
+        link_tag = jersey.find('a', class_='img-align')
+        link = link_tag['href'] if link_tag else 'No link available'
+        return f'{base_url}{link}'
 
-                description = ' '.join(name.split(' ')[2:])
-                name = ' '.join(name.split(' ')[:2])
-
-                price_tag = jersey_element.find('h6')
-                raw_price = price_tag.text.strip() if price_tag else 'Price not available'
-                price = clean_price(raw_price)
-
-                link_tag = jersey_element.find('a', class_='img-align')
-                link = link_tag['href'] if link_tag else 'No link available'
-                full_link = f'https://hollywoodcollectibles.com{link}'
-
-                jerseys.append({
-                    "Name": name,
-                    "Description": description,
-                    "Price": price,
-                    "Link": full_link,
-                    "Website": "Hollywood Collectibles"
-                })
-
-            # Check if there is a "Next" page link
-            next_page_link = soup.find('a', class_='next')
-            has_next_page = True if next_page_link else False
-            page_number += 1
-        else:
-            print("Failed to retrieve the webpage")
-            break
+    def get_total_pages(soup):
+        return 200
+    
+    jersey_processors = {
+        "Name": get_name,
+        "Description": get_description,
+        "Price": get_price,
+        "Link": get_link,
+        "Website": "Hollywood Collectibles"
+    }
+    
+    pagination_url_format = f"{base_url}{url_filter}?page={{}}{sorting_suffix}"
+    return generic_scrape(pagination_url_format, 'div.product', jersey_processors, get_total_pages)
 
 def setup_selenium_driver():
     """
@@ -254,65 +316,63 @@ def setup_selenium_driver():
     service = Service(ChromeDriverManager().install())
     return webdriver.Chrome(service=service, options=chrome_options)
 
-def scrape_fanaticsauthentics_with_chrome(url):
+def scrape_fanaticsauthentics_with_chrome():
+    base_url = 'https://www.fanaticsauthentic.com/mlb-authentic/jerseys-autographed/o-5676+d-74006653+fa-01+z-812-1128347476?pageSize=96&sortOption=TopSellers'
     driver = setup_selenium_driver()
 
-    # Navigate to the URL
-    driver.get(url)
+    driver.get(base_url)
 
-    # Introduce a wait to ensure the page has loaded. Consider using WebDriverWait for more robust handling.
+    # Introduce a wait to ensure the page has loaded.
     driver.implicitly_wait(10)
+    
+    jerseys = []
 
     # Extract total number of pages from 'pageCount' (e.g., "1 of 6")
     item_count_element = driver.find_element(By.CSS_SELECTOR, ".page-count")
     print("Page count element: ", item_count_element)
-    item_count_element_text = item_count_element.text  # e.g., "1 of 6"
+    item_count_element_text = item_count_element.text
     print("Total pages text: ", item_count_element_text)
-    total_items = int(item_count_element_text.split(' ')[-1])  # Extract '6' and convert to int
-    total_pages = math.ceil(total_items / page_size_fanaticsauthentics)
+    total_items = int(item_count_element_text.split(' ')[-1])
+    total_pages = math.ceil(total_items / 96)
 
-    current_page = 1  # Start at the first page
-    while current_page <= total_pages:  # Loop to navigate through pagination
+    current_page = 1
+    while current_page <= total_pages:
 
         print(f"Scraping page {current_page} of {total_pages}")
 
-        # Selector setup (adjust these based on the actual webpage structure)
-        product_selector = '.product-card'  # Example selector for product cards
-        name_selector = '.product-card-title a'  # Selector for the product name within the card
+        product_selector = '.product-card' 
+        name_selector = '.product-card-title a'
         description_selector = '.product-image-container img'  # Assuming description can be derived from the image alt text
-        price_selector = '.price-card .lowest .price'  # Selector for the product price
+        price_selector = '.price-card .lowest .price'
 
-        # Find all product elements
         product_elements = driver.find_elements("css selector", product_selector)
         for product_element in product_elements:
-            # Extracting the jersey name
             name = product_element.find_element("css selector", name_selector).text
             
-            # Extracting the link
             link_element = product_element.find_element("css selector", name_selector)
             full_link = link_element.get_attribute('href')
             
             # Attempting to use the 'alt' attribute of the product image as the description
             description = product_element.find_element("css selector", description_selector).get_attribute('alt')
+            team = get_team_from_description(description)
+            division = get_division(team)
             
-            # Extracting the price
             price_element = product_element.find_element("css selector", price_selector)
             price = clean_price(price_element.text)
             
-            # Split the name and description
             name = ' '.join(name.split(' ')[:2])
             description = ' '.join(description.split(' ')[2:])
 
-            # Append the extracted information to the jerseys list
             jerseys.append({
                 'Name': name,
                 'Description': description,
                 'Price': price,
                 'Link': full_link,
-                'Website': "Fanatics Authentic"
+                'Website': "Fanatics Authentic",
+                'Team': team,
+                'Division': division
             })
         
-        # Navigate to the next page if not on the last page
         if current_page < total_pages:
             next_page_link = driver.find_element(By.CSS_SELECTOR, ".next-page a")
             next_page_link.click()
@@ -321,15 +381,19 @@ def scrape_fanaticsauthentics_with_chrome(url):
         
         current_page += 1
 
-    # It's good practice to close the browser once you're done
     driver.quit()
+    return jerseys
 
-def scrape_steelcitycollectibles_with_chrome(url):
+def scrape_steelcitycollectibles_with_chrome():
+    base_url = 'https://www.steelcitycollectibles.com/c/autographs/baseball?item_type=jersey&sport=baseball'
+    
     driver = setup_selenium_driver()
-    driver.get(url)
+    driver.get(base_url)
 
     # Wait for the page to load
     driver.implicitly_wait(10)
+    
+    jerseys = []
 
     # Extract total number of pages
     pagination_elements = driver.find_elements(By.CSS_SELECTOR, '.pager-container .pagination .page-item a')
@@ -345,7 +409,7 @@ def scrape_steelcitycollectibles_with_chrome(url):
         if current_page > 1:
             print("Scraping page", current_page, "of", total_pages)
             # Construct URL for each page
-            page_url = f"{url}&page={current_page}"
+            page_url = f"{base_url}&page={current_page}"
             print("Navigating to", page_url)
             driver.get(page_url)
             # Wait for the page to load
@@ -359,6 +423,8 @@ def scrape_steelcitycollectibles_with_chrome(url):
             link_element = product_element.find_element(By.CSS_SELECTOR, '.pr-image a')
 
             name = name_element.text.strip()
+            team = get_team_from_description(name)
+            division = get_division(team)
 
             description = ' '.join(name.split(' ')[2:])
             name = ' '.join(name.split(' ')[:2])
@@ -367,17 +433,19 @@ def scrape_steelcitycollectibles_with_chrome(url):
             price_raw = price_element.text.strip()
             price = clean_price(price_raw)
             
-            # Append extracted data to the list
             jerseys.append({
                 "Name": name,
                 "Description": description,
                 "Price": price,
                 "Link": link,
-                "Website": "Steel City Collectibles"
+                "Website": "Steel City Collectibles",
+                "Team": team,
+                "Division": division
             })
         current_page += 1
 
     driver.quit()
+    return jerseys
 
 def clean_price(price_str):
     """
@@ -407,20 +475,24 @@ def clean_price(price_str):
         # If no prices are found at all, return a message indicating the price is not available
         return "Price not available"
 
-    
-scrape_fanaticsauthentics_with_chrome(base_url_fanaticsauthentics)
-scrape_steelcitycollectibles_with_chrome(base_url_steelcitycollectibles)
-scrape_shoprsa(base_url_shoprsa)
-scrape_shoplegends(base_url_shoplegends)
-scrape_sportsintegrity(base_url_sportsintegrity)
-scrape_hollywoodcollectibles(base_url_hollywoodcollectibles)
+def scrape_jerseys():
+    jerseys = []
+    # jerseys.extend(scrape_sportsintegrity())
+    # jerseys.extend(scrape_shoplegends())
+    # jerseys.extend(scrape_shoprsa())
+    # jerseys.extend(scrape_hollywoodcollectibles())
+    jerseys.extend(scrape_steelcitycollectibles_with_chrome())
+    # jerseys.extend(scrape_fanaticsauthentics_with_chrome())
+    return jerseys
+
+jerseys = scrape_jerseys()
 
 # Convert the list of dictionaries to a pandas DataFrame
 df_jerseys = pd.DataFrame(jerseys)
 print(df_jerseys.columns)
 
 # Convert the DataFrame to HTML, making the 'Link' column hyperlinks
-df_jerseys['Link'] = df_jerseys['Link'].apply(lambda x: f'<a href="{x}">Link</a>')
+df_jerseys['Link'] = df_jerseys['Link'].apply(lambda x: f'<a href="{x}" target="_blank">Link</a>')
 df_jerseys['Description'] = df_jerseys['Description'].apply(lambda x: x.replace('Authentic', '<b>Authentic</b>'))
 
 # Add the 'Style' column based on the 'Description' column content
