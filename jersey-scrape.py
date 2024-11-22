@@ -14,37 +14,37 @@ from webdriver_manager.chrome import ChromeDriverManager
 start_time = time.time()  # Record start time
 
 mlb_teams = [
-    "Diamondbacks",
-    "Braves",
-    "Orioles",
-    "Red Sox",
-    "White Sox",
-    "Cubs",
-    "Expos",
-    "Reds",
-    "Guardians",
-    "Rockies",
-    "Tigers",
-    "Astros",
-    "Royals",
+    "A's",
     "Angels",
-    "Dodgers",
-    "Marlins",
-    "Brewers",
-    "Twins",
-    "Yankees",
-    "Mets",
+    "Astros",
     "Athletics",
+    "Blue Jays",
+    "Braves",
+    "Brewers",
+    "Cardinals",
+    "Cubs",
+    "Diamondbacks",
+    "Dodgers",
+    "Expos",
+    "Giants",
+    "Guardians",
+    "Marlins",
+    "Mets",
+    "Nationals",
+    "Orioles",
+    "Padres",
     "Phillies",
     "Pirates",
-    "Padres",
-    "Giants",
-    "Mariners",
-    "Cardinals",
-    "Rays",
     "Rangers",
-    "Blue Jays",
-    "Nationals"
+    "Rays",
+    "Reds",
+    "Red Sox",
+    "Rockies",
+    "Royals",
+    "Tigers",
+    "Twins",
+    "White Sox",
+    "Yankees"
 ]
 
 mlb_team_cities = [
@@ -115,7 +115,7 @@ city_to_team = {
     "Washington": "Nationals"
 }
 
-player_to_team_combined = {
+player_to_team = {
     "Aaron Judge": "Yankees",
     "Alex Rodriguez": "Yankees",
     "Alfonso Soriano": "Yankees",
@@ -155,7 +155,7 @@ player_to_team_combined = {
     "Goose Gossage": "Yankees",
     "Gregg Jefferies": "Mets",
     "Howard Johnson": "Mets",
-    "Jacob DeGrom": "Mets",
+    "Jacob deGrom": "Mets",
     "Jason Giambi": "Yankees",
     "Jermaine Dye": "White Sox",
     "Jerome Walton": "Cubs",
@@ -187,6 +187,7 @@ player_to_team_combined = {
     "Ron Darling": "Mets",
     "Ron Swoboda": "Mets",
     "Ronny Mauricio": "Mets",
+    "Sammy Sosa": "Cubs",
     "Scott Brosius": "Yankees",
     "Shane Spencer": "Yankees",
     "Shawon Dunston": "Cubs",
@@ -274,11 +275,11 @@ def generic_scrape(pagination_url_format, jersey_list_selector, jersey_processor
                 processed_value = processor(jersey_element) if callable(processor) else processor
                 jersey_data[key] = processed_value
                 # Specifically check the Description for 'jersey' keyword
-                if key == "Description" and processed_value and ('jersey' not in processed_value.lower() or 'jr' in processed_value.lower(), 'card' in processed_value.lower() or 'photo' in processed_value.lower()):
+                if key == "Description" and processed_value and ('jersey' not in processed_value.lower() or 'jr' in processed_value.lower() or 'card' in processed_value.lower() or 'photo' in processed_value.lower()):
                     include_jersey = False
                     break
             if include_jersey and jersey_data.get("Price") and jersey_data["Price"] != 'Price not available':
-                jersey_data["Team"] = get_team_from_description(jersey_data["Description"])
+                jersey_data["Team"] = get_team_from_description(jersey_data["Description"], jersey_data["Name"])
                 jersey_data["Division"] = get_division(jersey_data["Team"])
                 jerseys.append(jersey_data)
         page_number += 1
@@ -289,7 +290,10 @@ def get_division(team):
         if team in division["teams"]:
             return division["division"]
 
-def get_team_from_description(description):
+def get_team_from_description(description, name):
+    if "a's" in description.lower():
+        return "Athletics"
+    
     for player, team in player_to_team.items():
         if player.lower() in description.lower():
             return team
@@ -306,7 +310,7 @@ def get_team_from_description(description):
                 # Attempt to determine the team based on known players
                 for team in teams:
                     for player, player_team in player_to_team.items():
-                        if team == player_team and player.lower() in description.lower():
+                        if team == player_team and player.lower() == name.lower():
                             return team
                 return ', '.join(teams)  # Return a list of teams if unable to determine
             else:
@@ -542,13 +546,13 @@ def scrape_fanaticsauthentics_with_chrome():
             
             # Attempting to use the 'alt' attribute of the product image as the description
             description = product_element.find_element("css selector", description_selector).get_attribute('alt')
-            team = get_team_from_description(description)
-            division = get_division(team)
             
             price_element = product_element.find_element("css selector", price_selector)
             price = clean_price(price_element.text)
             
             name = ' '.join(name.split(' ')[:2])
+            team = get_team_from_description(description, name)
+            division = get_division(team)
             description = ' '.join(description.split(' ')[2:])
 
             jerseys.append({
@@ -613,11 +617,10 @@ def scrape_steelcitycollectibles_with_chrome():
             price_element = product_element.find_element(By.CSS_SELECTOR, '.pr-price')
             link_element = product_element.find_element(By.CSS_SELECTOR, '.pr-image a')
 
-            team = get_team_from_description(name)
-            division = get_division(team)
-
             description = ' '.join(name.split(' ')[2:])
             name = ' '.join(name.split(' ')[:2])
+            team = get_team_from_description(description, name)
+            division = get_division(team)
 
             link = link_element.get_attribute('href')
             price_raw = price_element.text.strip()
@@ -692,6 +695,9 @@ df_jerseys['Style'] = df_jerseys['Style'].apply(
     lambda style: f"<b>{style}</b>" if style == 'Authentic' else style
 )
 
+# Adding a column of checkboxes
+df_jerseys.insert(0, '', [f'<div class="checkbox-column"><input type="checkbox"></div>' for _ in range(len(df_jerseys))])
+
 html_table = df_jerseys.to_html(escape=False)
 
 # HTML script for sortable table
@@ -701,84 +707,68 @@ sortable_table_script = """
 <head>
     <style>
         body {
+            font-size: 10px;
             font-family: Arial, sans-serif;
             background-color: #f8f9fa;
             color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .tables-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        .main-table {
+            width: 70%; /* Adjust as necessary for the main table's width */
+        }
+        .summary-table {
+            position: fixed; /* Fix the summary table's position */
+            top: 20px; /* Distance from the top of the viewport */
+            right: 20px; /* Distance from the right of the viewport */
+            width: calc(25% - 40px); /* Width of the summary table minus padding and margin */
+            max-height: 95vh; /* Maximum height to ensure it doesn't overflow the viewport */
+            overflow-y: auto; /* Allow scrolling within the table if it exceeds the max height */
         }
         table {
             border-collapse: collapse;
             width: 100%;
-            margin-bottom: 20px;
-        }
-        table, th, td {
-            border: 1px solid #dee2e6;
         }
         th, td {
+            border: 1px solid #dee2e6;
             text-align: left;
             padding: 8px;
+            vertical-align: middle;
         }
         th {
             background-color: #007bff;
             color: white;
             cursor: pointer;
         }
-        tr:nth-child(even) {background-color: #f2f2f2;}
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        .checkbox-column input[type="checkbox"] {
+            margin-left: auto;
+            margin-right: auto;
+            display: block;
+        }
+        .summary-table th, .summary-table td {
+            width: 75px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
-    <h2>Available Jerseys</h2>
-    """ + html_table + """
-<script>
-function makeTableSortable(table) {
-    var headers = table.querySelectorAll('th');
-    headers.forEach(function(header, index) {
-        // Skip the first empty header
-        if (index === 0) return;
-
-        header.addEventListener('click', function() {
-            // Toggle the sort direction; if it was not set, default to ascending
-            var currentDirection = header.getAttribute('data-sort');
-            var direction = currentDirection === 'asc' ? 'desc' : 'asc';
-
-            var rows = Array.from(table.querySelectorAll('tbody tr')); // Ensure we're only sorting rows within tbody
-
-            rows.sort(function(a, b) {
-                var aText = a.querySelectorAll('td')[index - 1].innerText; // Adjust index for empty header
-                var bText = b.querySelectorAll('td')[index - 1].innerText;
-
-                // Attempt to convert strings to numbers for a proper numeric comparison
-                var aNumber = parseFloat(aText.replace(/[\$,]/g, ''));
-                var bNumber = parseFloat(bText.replace(/[\$,]/g, ''));
-
-                if (!isNaN(aNumber) && !isNaN(bNumber)) {
-                    // Both aText and bText are valid numbers
-                    return (aNumber - bNumber) * (direction === 'asc' ? 1 : -1);
-                } else {
-                    // Fallback to string comparison
-                    return aText.localeCompare(bText, undefined, {numeric: true}) * (direction === 'asc' ? 1 : -1);
-                }
-            });
-
-            // Reattach sorted rows to the table
-            rows.forEach(row => table.querySelector('tbody').appendChild(row));
-
-            // Update the sort direction in the header for the next click
-            header.setAttribute('data-sort', direction);
-
-            // Update all headers' data-sort attributes to ensure consistency
-            headers.forEach(h => {
-                if (h !== header) h.setAttribute('data-sort', ''); // Reset other headers' sort direction
-            });
-        });
-    });
-}
-
-// Apply the function to your table after the page content is fully loaded
-document.addEventListener('DOMContentLoaded', function() {
-    var table = document.querySelector('table'); // Adjust the selector if needed
-    makeTableSortable(table);
-});
-</script>
+    <div class="tables-container">
+        <div class="main-table">
+            """ + html_table + """
+        </div>
+        <div class="summary-table">
+            <table id="summary-table"></table>
+        </div>
+    </div>
+<script src="jersey_data.js"></script>
 </body>
 </html>
 """
