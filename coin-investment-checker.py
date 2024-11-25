@@ -16,7 +16,9 @@ logging.basicConfig(
 
 
 class CoinGeckoAPI:
-    BASE_URL = "https://api.coingecko.com/api/v3/coins/markets"
+    BASE_URL = "https://api.coingecko.com/api/v3/coins"
+    MARKETS_ENDPOINT = "/markets"
+    LIST_ENDPOINT = "/list?include_platform=true"
     API_KEY = ""
     TOTAL_PAGES = 60
 
@@ -41,20 +43,46 @@ class CoinGeckoAPI:
 
     def get_potential_coin_investments(self):
         logging.info("Fetching potential coin investments...")
-        all_coins = []
+        all_coins_list = self.get_coin_list()
+        all_coins_market_data = []
 
         for page in range(1, self.TOTAL_PAGES + 1):
             logging.info(f"Fetching data for page {page}...")
             coins = self.get_coin_list_with_market_data(page)
             if coins:
-                all_coins.extend(coins)
+                all_coins_market_data.extend(coins)
             time.sleep(2.5)
 
         logging.info("Processing and filtering coin data...")
         potential_investments = []
-        for coin in all_coins:
+        for coin in all_coins_market_data:
             classification = self.is_potential_coin_investment(coin)
             if classification:
+                # Find the associated coin in the all_coins_list
+                associated_coin = next(
+                    (item for item in all_coins_list if item["id"] == coin["id"]), None
+                )
+
+                # Extract contract number and determine the associated platform
+                contract_number = ""
+                platform = ""
+                if associated_coin and "platforms" in associated_coin:
+                    platforms = associated_coin["platforms"]
+                    if len(platforms) == 1:
+                        # Only one platform available
+                        platform, contract_number = next(iter(platforms.items()))
+                    elif "ethereum" in platforms:
+                        # Default to Ethereum if multiple platforms exist
+                        platform = "ethereum"
+                        contract_number = platforms["ethereum"]
+
+                # Generate Gecko Terminal link dynamically based on the platform
+                gecko_terminal_link = (
+                    f"https://www.geckoterminal.com/{platform}/pools/{contract_number}"
+                    if contract_number
+                    else ""
+                )
+
                 potential_investments.append(
                     {
                         "id": coin["id"],
@@ -62,6 +90,8 @@ class CoinGeckoAPI:
                         "link": f"https://www.coingecko.com/en/coins/{coin['id']}",
                         "image": coin["image"],
                         "classification": classification,
+                        "contract_number": contract_number,
+                        "gecko_terminal_link": gecko_terminal_link,
                     }
                 )
 
@@ -70,8 +100,19 @@ class CoinGeckoAPI:
         logging.info("Finished writing to Google Sheets.")
         return potential_investments
 
+    def get_coin_list(self):
+        url = f"{self.BASE_URL}{self.LIST_ENDPOINT}"
+        headers = {"accept": "application/json", "x-cg-demo-api-key": self.API_KEY}
+
+        try:
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Error fetching data: {e}")
+
     def get_coin_list_with_market_data(self, page):
-        url = f"{self.BASE_URL}?vs_currency=usd&order=market_cap_asc&per_page=250&page={page}"
+        url = f"{self.BASE_URL}{self.MARKETS_ENDPOINT}?vs_currency=usd&order=market_cap_asc&per_page=250&page={page}"
         headers = {"accept": "application/json", "x-cg-demo-api-key": self.API_KEY}
 
         try:
@@ -83,6 +124,25 @@ class CoinGeckoAPI:
             return None
 
     def is_potential_coin_investment(self, coin):
+        blacklisted_coin_ids = {
+            "wrapped-bitcoin-universal",
+            "wrapped-xrp-universal",
+            "wrapped-solana-universal",
+            "wrapped-ada-universal",
+            "wrapped-near-universal",
+            "wrapped-sei-universal",
+            "l2-standard-bridged-weth-optimism",
+            "arbitrum-bridged-weth-arbitrum-one",
+            "l2-standard-bridged-weth-base",
+        }
+
+        # Skip evaluation for blacklisted coins
+        if coin.get("id") in blacklisted_coin_ids:
+            logging.info(
+                f"Coin '{coin.get('id')}' is blacklisted. Skipping evaluation."
+            )
+            return None
+
         # Coin evaluation logic
         high = coin.get("high_24h") or 0
         low = coin.get("low_24h") or 0
@@ -154,7 +214,16 @@ class CoinGeckoAPI:
 
         # Write header below the gap
         safe_write(
-            self.sheet.append_row, ["ID", "Name", "Classification", "Link", "Image"]
+            self.sheet.append_row,
+            [
+                "ID",
+                "Name",
+                "Classification",
+                "Contract Number",
+                "Gecko Terminal Link",
+                "Link",
+                "Image",
+            ],
         )
 
         # Write data
@@ -165,6 +234,8 @@ class CoinGeckoAPI:
                     investment["id"],
                     investment["name"],
                     investment["classification"],
+                    investment["contract_number"],
+                    investment["gecko_terminal_link"],
                     investment["link"],
                     investment["image"],
                 ],
