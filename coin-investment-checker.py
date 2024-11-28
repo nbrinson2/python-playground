@@ -44,7 +44,24 @@ class CoinGeckoAPI:
     def get_potential_coin_investments(self):
         logging.info("Fetching potential coin investments...")
         all_coins_list = self.get_coin_list()
+        time.sleep(2.5)
         all_coins_market_data = []
+
+        # Predefined platform-to-ID mapping
+        platform_to_id_map = {
+            "ethereum": "eth",
+            "binance-smart-chain": "bsc",
+            "polygon-pos": "polygon_pos",
+            "avalanche": "avax",
+            "moonriver": "movr",
+            "cronos": "cro",
+            "harmony-shard-0": "one",
+            "boba": "boba",
+            "fantom": "ftm",
+            "aurora": "aurora",
+            "arbitrum-one": "arbitrum",
+            "sui": "sui-network",
+        }
 
         for page in range(1, self.TOTAL_PAGES + 1):
             logging.info(f"Fetching data for page {page}...")
@@ -75,6 +92,12 @@ class CoinGeckoAPI:
                         # Default to Ethereum if multiple platforms exist
                         platform = "ethereum"
                         contract_number = platforms["ethereum"]
+                        # Map platform to its platform ID
+                    if platform in platform_to_id_map:
+                        platform = platform_to_id_map[platform]
+
+                if not contract_number:
+                    continue
 
                 # Generate Gecko Terminal link dynamically based on the platform
                 gecko_terminal_link = (
