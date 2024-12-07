@@ -6,6 +6,7 @@ import random
 import logging
 from datetime import datetime, timezone
 from google.oauth2.service_account import Credentials
+from decimal import Decimal, getcontext
 
 # Configure logging
 logging.basicConfig(
@@ -14,11 +15,14 @@ logging.basicConfig(
     handlers=[logging.StreamHandler()],
 )
 
+# Set the precision to handle 30 decimal places
+getcontext().prec = 35
 
 class CoinGeckoAPI:
     BASE_URL = "https://api.coingecko.com/api/v3/coins"
     MARKETS_ENDPOINT = "/markets"
     LIST_ENDPOINT = "/list?include_platform=true"
+    HISTORICAL_DATA_ENDPOINT = "/market_chart?vs_currency=usd&days=1"
     API_KEY = ""
     TOTAL_PAGES = 60
 
@@ -43,12 +47,39 @@ class CoinGeckoAPI:
 
     def get_potential_coin_investments(self):
         logging.info("Fetching potential coin investments...")
+        
+        # Fetch initial data
         all_coins_list = self.get_coin_list()
         time.sleep(2.5)
-        all_coins_market_data = []
 
-        # Predefined platform-to-ID mapping
-        platform_to_id_map = {
+        # Fetch market data
+        all_coins_market_data = self._fetch_all_market_data()
+        
+        # Filter and process potential investments
+        platform_to_id_map = self._get_platform_to_id_map()
+        potential_investments = self._filter_potential_investments(all_coins_market_data, all_coins_list, platform_to_id_map)
+
+        # Write results to Google Sheets
+        logging.info("Writing potential investments to Google Sheets...")
+        self.write_to_sheet(potential_investments)
+        logging.info("Finished writing to Google Sheets.")
+        
+        return potential_investments
+
+    def _fetch_all_market_data(self):
+        """Fetch market data for all pages."""
+        all_coins_market_data = []
+        for page in range(1, self.TOTAL_PAGES + 1):
+            logging.info(f"Fetching data for page {page}...")
+            coins = self.get_coin_list_with_market_data(page)
+            if coins:
+                all_coins_market_data.extend(coins)
+            time.sleep(2.5)
+        return all_coins_market_data
+
+    def _get_platform_to_id_map(self):
+        """Return the platform-to-ID mapping."""
+        return {
             "ethereum": "eth",
             "binance-smart-chain": "bsc",
             "polygon-pos": "polygon_pos",
@@ -61,67 +92,58 @@ class CoinGeckoAPI:
             "aurora": "aurora",
             "arbitrum-one": "arbitrum",
             "sui": "sui-network",
+            "klay-token": "kaia",
         }
 
-        for page in range(1, self.TOTAL_PAGES + 1):
-            logging.info(f"Fetching data for page {page}...")
-            coins = self.get_coin_list_with_market_data(page)
-            if coins:
-                all_coins_market_data.extend(coins)
-            time.sleep(2.5)
-
-        logging.info("Processing and filtering coin data...")
+    def _filter_potential_investments(self, market_data, all_coins_list, platform_to_id_map):
+        """Filter and process potential coin investments."""
         potential_investments = []
-        for coin in all_coins_market_data:
+        for coin in market_data:
             classification = self.is_potential_coin_investment(coin)
-            if classification:
-                # Find the associated coin in the all_coins_list
-                associated_coin = next(
-                    (item for item in all_coins_list if item["id"] == coin["id"]), None
-                )
+            if not classification:
+                continue
 
-                # Extract contract number and determine the associated platform
-                contract_number = ""
-                platform = ""
-                if associated_coin and "platforms" in associated_coin:
-                    platforms = associated_coin["platforms"]
-                    if len(platforms) == 1:
-                        # Only one platform available
-                        platform, contract_number = next(iter(platforms.items()))
-                    elif "ethereum" in platforms:
-                        # Default to Ethereum if multiple platforms exist
-                        platform = "ethereum"
-                        contract_number = platforms["ethereum"]
-                        # Map platform to its platform ID
-                    if platform in platform_to_id_map:
-                        platform = platform_to_id_map[platform]
+            associated_coin = next((item for item in all_coins_list if item["id"] == coin["id"]), None)
+            if not associated_coin:
+                continue
 
-                if not contract_number:
-                    continue
+            contract_number, platform = self._extract_platform_and_contract(associated_coin, platform_to_id_map)
+            if not contract_number:
+                continue
 
-                # Generate Gecko Terminal link dynamically based on the platform
-                gecko_terminal_link = (
-                    f"https://www.geckoterminal.com/{platform}/pools/{contract_number}"
-                    if contract_number
-                    else ""
-                )
+            gecko_terminal_link = f"https://www.geckoterminal.com/{platform}/pools/{contract_number}"
+            rsi = self.get_coin_rsi(coin["id"]) or "N/A"
 
-                potential_investments.append(
-                    {
-                        "id": coin["id"],
-                        "name": coin["name"],
-                        "link": f"https://www.coingecko.com/en/coins/{coin['id']}",
-                        "image": coin["image"],
-                        "classification": classification,
-                        "contract_number": contract_number,
-                        "gecko_terminal_link": gecko_terminal_link,
-                    }
-                )
-
-        logging.info("Writing potential investments to Google Sheets...")
-        self.write_to_sheet(potential_investments)
-        logging.info("Finished writing to Google Sheets.")
+            potential_investments.append(
+                {
+                    "id": coin["id"],
+                    "name": coin["name"],
+                    "link": f"https://www.coingecko.com/en/coins/{coin['id']}",
+                    "image": coin["image"],
+                    "classification": classification,
+                    "contract_number": contract_number,
+                    "gecko_terminal_link": gecko_terminal_link,
+                    "rsi": rsi,
+                }
+            )
         return potential_investments
+
+    def _extract_platform_and_contract(self, associated_coin, platform_to_id_map):
+        """Extract contract number and determine associated platform."""
+        contract_number = ""
+        platform = ""
+        platforms = associated_coin.get("platforms", {})
+        if len(platforms) == 1:
+            platform, contract_number = next(iter(platforms.items()))
+        elif "ethereum" in platforms:
+            platform = "ethereum"
+            contract_number = platforms["ethereum"]
+
+        if platform in platform_to_id_map:
+            platform = platform_to_id_map[platform]
+
+        return contract_number, platform
+
 
     def get_coin_list(self):
         url = f"{self.BASE_URL}{self.LIST_ENDPOINT}"
@@ -146,6 +168,87 @@ class CoinGeckoAPI:
             logging.error(f"Error fetching data for page {page}: {e}")
             return None
 
+    def calculate_rsi(self, closing_prices):
+        if len(closing_prices) < 14:
+            raise ValueError("At least 14 closing prices are required to calculate RSI.")
+
+        # Convert closing prices to Decimal for precision
+        closing_prices = [Decimal(price) for price in closing_prices]
+
+        # Step 1: Calculate gains and losses
+        gains = [max(closing_prices[i] - closing_prices[i - 1], Decimal(0)) for i in range(1, len(closing_prices))]
+        losses = [max(closing_prices[i - 1] - closing_prices[i], Decimal(0)) for i in range(1, len(closing_prices))]
+
+        # Step 2: Calculate the average gain and average loss for the first 14 periods
+        average_gain = sum(gains[:14]) / Decimal(14)
+        average_loss = sum(losses[:14]) / Decimal(14)
+
+        # Step 3: Calculate Relative Strength (RS)
+        relative_strength = average_gain / average_loss if average_loss != 0 else Decimal('Infinity')
+
+        # Step 4: Calculate RSI
+        rsi = Decimal(100) - (Decimal(100) / (Decimal(1) + relative_strength))
+
+        return float(rsi)  # Convert back to float for the final output
+
+    def get_coin_rsi(self, coin_id):
+        try:
+            historical_data = self.get_coin_historical_data(coin_id)
+            
+            if not historical_data or "prices" not in historical_data:
+                logging.warning(f"Missing or invalid historical data for coin {coin_id}")
+                return None
+
+            prices = historical_data["prices"]  # This is the array with [timestamp, price]
+            
+            if len(prices) < 14:
+                logging.warning(f"Not enough data to calculate RSI for {coin_id}. At least 14 data points are required.")
+                return None
+
+            prices_by_hour = self.filter_prices_by_hour(prices)
+            
+            closing_prices = [price[1] for price in prices_by_hour]  # Extract only the closing prices
+
+            if len(closing_prices) < 14:
+                logging.warning(f"Not enough hourly data to calculate RSI for {coin_id}. At least 14 closing prices are required.")
+                return None
+
+            rsi = self.calculate_rsi(closing_prices)
+            rounded_rsi = round(rsi)  # Round RSI to the nearest whole number
+            return rounded_rsi
+
+        except Exception as e:
+            logging.error(f"Error occurred while processing RSI for coin {coin_id}: {e}")
+            return None
+
+
+    def get_coin_historical_data(self, coin_id):
+        url = f"{self.BASE_URL}/{coin_id}{self.HISTORICAL_DATA_ENDPOINT}"
+        headers = {"accept": "application/json", "x-cg-demo-api-key": self.API_KEY}
+
+        try:
+            logging.info(f"Fetching historical data for coin: {coin_id}")
+            response = requests.get(url, headers=headers, timeout=10)  # Added timeout for better request handling
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Error fetching historical data for coin {coin_id}: {e}")
+            return None
+
+    def filter_prices_by_hour(self, prices):
+        if not prices:
+            return []
+
+        filtered_prices = []
+        last_timestamp = None
+
+        for timestamp, price in reversed(prices):  # Iterate from the end
+            if last_timestamp is None or (last_timestamp - timestamp) >= 3600000:
+                filtered_prices.append([timestamp, price])
+                last_timestamp = timestamp
+
+        return filtered_prices[::-1]  # Reverse to maintain chronological order
+
     def is_potential_coin_investment(self, coin):
         blacklisted_coin_ids = {
             "wrapped-bitcoin-universal",
@@ -154,9 +257,12 @@ class CoinGeckoAPI:
             "wrapped-ada-universal",
             "wrapped-near-universal",
             "wrapped-sei-universal",
+            "wrapped-aptos-universal",
             "l2-standard-bridged-weth-optimism",
             "arbitrum-bridged-weth-arbitrum-one",
             "l2-standard-bridged-weth-base",
+            "avalanche-bridged-weth-avalanche",
+            "wrapped-sui-universal",
         }
 
         # Skip evaluation for blacklisted coins
@@ -243,6 +349,7 @@ class CoinGeckoAPI:
                 "Name",
                 "Classification",
                 "Contract Number",
+                "RSI",
                 "Gecko Terminal Link",
                 "Link",
                 "Image",
@@ -258,6 +365,7 @@ class CoinGeckoAPI:
                     investment["name"],
                     investment["classification"],
                     investment["contract_number"],
+                    investment["rsi"],
                     investment["gecko_terminal_link"],
                     investment["link"],
                     investment["image"],
