@@ -33,6 +33,7 @@ class CoinInvestmentChecker:
         "Classification",
         "Contract Number",
         "RSI",
+        "Analyzed Price",
         "Current Price",
         "Date Doubled",
         "Date 50 % Gain",
@@ -91,34 +92,78 @@ class CoinInvestmentChecker:
                 self.history_sheet.append_row(self.HISTORY_SHEET_HEADERS)
 
             # Write transformed data to the history sheet
+            logging.info("Writing existing data to history sheet...")
             start_row = len(history_data) + 1 if history_data else 1  # Account for headers
             for i, row in enumerate(transformed_data):
-                logging.info("Writing existing data to history sheet...")
                 row_index = start_row + i
 
                 # Insert the formula in the Current Price column
                 formula_cell = f"B{row_index}"  # Adjust formula to point to the correct row
                 formula = f"=GECKOPRICE({formula_cell})"
-                row[6] = formula  # Add placeholder formula to the row
+                row[7] = formula  # Add placeholder formula to the row
 
                 # Ensure RSI is a numeric value
                 if row[5].isdigit():
                     row[5] = float(row[5])  # Convert RSI to a float for numeric formatting
+                
+                if row[6].isdigit():
+                    row[6] = float(row[6])
 
                 # Write the row data (without the formula for now)
                 self.history_sheet.update(
-                    [row[:6] + [""] + row[7:]], range_name=f"A{row_index}:L{row_index}"
+                    [row[:7] + [""] + row[8:]], range_name=f"A{row_index}:M{row_index}"
                 )
 
                 # Update the formula separately to ensure it's not escaped
-                self.history_sheet.update_acell(f"G{row_index}", formula)
+                self.history_sheet.update_acell(f"H{row_index}", formula)
 
             logging.info("Successfully wrote data to history sheet.")
         except Exception as e:
             logging.error(f"Error writing data to history sheet: {e}")
             raise
 
+    def update_history_sheet_with_market_data(self, all_coins_market_data):
+        logging.info("Updating history sheet with market data...")
 
+        # Read all rows from the history sheet
+        history_data = self.history_sheet.get_all_values()
+
+        if not history_data or history_data[0] != self.HISTORY_SHEET_HEADERS:
+            logging.error("Invalid or empty history sheet. Ensure headers match the expected format.")
+            return
+
+        # Traverse rows starting from the second (skip headers)
+        for row_index, row in enumerate(history_data[1:], start=2):
+            coin_id = row[1]  # Coin ID is in column B (index 1)
+            analyzed_price = float(row[6]) if row[6] else None  # Analyzed Price is in column G (index 6)
+
+            # Skip rows where both "Date Doubled" and "Date 50 % Gain" are already populated
+            if row[8] and row[9]:  # Columns I (index 8) and J (index 9)
+                logging.info(f"Skipping row {row_index}: Both 'Date Doubled' and 'Date 50 % Gain' are already populated.")
+                continue
+
+            # Find the corresponding coin in market data
+            coin_data = next((coin for coin in all_coins_market_data if coin["id"] == coin_id), None)
+
+            if not coin_data or analyzed_price is None:
+                continue
+
+            high_24h = coin_data.get("high_24h", 0)
+
+            # Check if the price has doubled
+            if high_24h >= 2 * analyzed_price and not row[8]:  # Date Doubled is in column I (index 8)
+                current_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                self.history_sheet.update_acell(f"I{row_index}", current_timestamp)
+
+            if row[9]:
+                continue
+
+            # Check if the price has risen by 50%
+            if high_24h >= 1.5 * analyzed_price and not row[9]:  # Date 50 % Gain is in column J (index 9)
+                current_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                self.history_sheet.update_acell(f"J{row_index}", current_timestamp)
+
+        logging.info("History sheet updated with market data.")
         
     def transform_data_for_history_sheet(self, data, combined_datetime):
         logging.info("Transforming data for history sheet...")
@@ -127,7 +172,7 @@ class CoinInvestmentChecker:
 
         for row in data:
             # Ensure rows have expected length (adjust based on your source sheet structure)
-            if len(row) < 7:
+            if len(row) < 8:
                 logging.warning(f"Skipping malformed row: {row}")
                 continue
 
@@ -137,13 +182,14 @@ class CoinInvestmentChecker:
                 row[1],  # Name
                 row[2] if len(row) > 2 else "",  # Classification
                 row[3] if len(row) > 3 else "",  # Contract Number
-                row[4] if len(row) > 4 else "N/A",  # RSI
+                row[5] if len(row) > 5 else "N/A",  # RSI
+                row[4] if len(row) > 4 else "",  # Analyzed Price
                 "",  # Current Price
                 "",  # Date Doubled (Placeholder)
                 "",  # Date 50 % Gain (Placeholder)
-                row[5] if len(row) > 6 else "",  # Gecko Terminal Link
-                row[6] if len(row) > 7 else "",  # Link
-                row[7] if len(row) > 8 else "",  # Image
+                row[6] if len(row) > 6 else "",  # Gecko Terminal Link
+                row[7] if len(row) > 7 else "",  # Link
+                row[8] if len(row) > 8 else "",  # Image
             ]
             transformed_data.append(transformed_row)
 
@@ -164,6 +210,9 @@ class CoinInvestmentChecker:
         potential_investments = self._filter_potential_investments(
             all_coins_market_data, all_coins_list, platform_to_id_map
         )
+
+        # Update history sheet with market data
+        self.update_history_sheet_with_market_data(all_coins_market_data)
 
         # Write results to Google Sheets
         logging.info("Writing potential investments to Google Sheets...")
@@ -238,6 +287,7 @@ class CoinInvestmentChecker:
                     "contract_number": contract_number,
                     "gecko_terminal_link": gecko_terminal_link,
                     "rsi": rsi,
+                    "price": coin["current_price"],
                 }
             )
         return potential_investments
@@ -485,6 +535,7 @@ class CoinInvestmentChecker:
                 "Name",
                 "Classification",
                 "Contract Number",
+                "Current Price",
                 "RSI",
                 "Gecko Terminal Link",
                 "Link",
@@ -501,6 +552,7 @@ class CoinInvestmentChecker:
                     investment["name"],
                     investment["classification"],
                     investment["contract_number"],
+                    investment["price"],
                     investment["rsi"],
                     investment["gecko_terminal_link"],
                     investment["link"],
