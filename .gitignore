@@ -1,6 +1,8 @@
 probable-pitchers.html
 player-scrape.log
-probable-pitchers.html
+dist/
+venv/
+.venv/
 jersey_data.html
 crypto-noobs-account-key.json
 coin-investment-checker.log
