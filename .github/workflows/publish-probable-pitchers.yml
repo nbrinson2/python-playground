@@ -6,7 +6,7 @@
 #   CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID — optional; token needs "Cloudflare Pages — Edit".
 #
 # Variables (same menu → Variables tab):
-#   CLOUDFLARE_PAGES_PROJECT — Cloudflare Pages project name (not secret). Required for CF deploy job.
+#   CLOUDFLARE_PAGES_PROJECT — Cloudflare Pages project name (not secret). Required for CF deploy.
 
 name: Publish probable pitchers
 
@@ -20,18 +20,33 @@ permissions:
   contents: read
 
 jobs:
-  scrape:
+  scrape-and-publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Detect FantasyPros credentials
+        id: fp
+        env:
+          FP_EMAIL: ${{ secrets.FANTASYPROS_EMAIL }}
+        run: |
+          if [ -n "$FP_EMAIL" ]; then
+            echo "need_chrome=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "need_chrome=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Chrome (Selenium)
+        if: steps.fp.outputs.need_chrome == 'true'
+        uses: browser-actions/setup-chrome@v2
+        with:
+          install-dependencies: true
+          install-chromedriver: true
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
-
-      - name: Install Chrome (Selenium)
-        uses: browser-actions/setup-chrome@v1
 
       - name: Install Python dependencies
         run: pip install -r requirements.txt
@@ -50,39 +65,43 @@ jobs:
           name: probable-pitchers-site
           path: deploy
 
-  deploy-netlify:
-    needs: scrape
-    if: ${{ secrets.NETLIFY_AUTH_TOKEN && secrets.NETLIFY_SITE_ID }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: probable-pitchers-site
-          path: site
+      # secrets/vars are not allowed in job-level `if`; gate deploy steps via outputs instead.
+      - name: Detect deploy targets
+        id: targets
+        env:
+          NL_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NL_SITE: ${{ secrets.NETLIFY_SITE_ID }}
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_PROJ: ${{ vars.CLOUDFLARE_PAGES_PROJECT }}
+        run: |
+          if [ -n "$NL_TOKEN" ] && [ -n "$NL_SITE" ]; then
+            echo "netlify=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "netlify=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -n "$CF_TOKEN" ] && [ -n "$CF_ACCT" ] && [ -n "$CF_PROJ" ]; then
+            echo "cloudflare=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "cloudflare=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: actions/setup-node@v4
+        if: steps.targets.outputs.netlify == 'true'
         with:
           node-version: "20"
 
       - name: Deploy to Netlify (production)
+        if: steps.targets.outputs.netlify == 'true'
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-        run: npx --yes netlify-cli deploy --prod --dir=site --site="$NETLIFY_SITE_ID" --auth="$NETLIFY_AUTH_TOKEN" --message="publish-probable-pitchers ${{ github.run_id }}"
-
-  deploy-cloudflare:
-    needs: scrape
-    if: ${{ secrets.CLOUDFLARE_API_TOKEN && secrets.CLOUDFLARE_ACCOUNT_ID && vars.CLOUDFLARE_PAGES_PROJECT }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: probable-pitchers-site
-          path: site
+        run: npx --yes netlify-cli deploy --prod --dir=deploy --site="$NETLIFY_SITE_ID" --auth="$NETLIFY_AUTH_TOKEN" --message="publish-probable-pitchers ${{ github.run_id }}"
 
       - name: Deploy to Cloudflare Pages
+        if: steps.targets.outputs.cloudflare == 'true'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy site --project-name=${{ vars.CLOUDFLARE_PAGES_PROJECT }}
+          command: pages deploy deploy --project-name=${{ vars.CLOUDFLARE_PAGES_PROJECT }}
