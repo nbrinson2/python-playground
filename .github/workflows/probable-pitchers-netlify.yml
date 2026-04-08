@@ -1,0 +1,85 @@
+# Builds probable-pitchers.html with player-scrape.py and deploys static files to Netlify.
+#
+# Repository secrets (Settings → Secrets and variables → Actions):
+#   NETLIFY_AUTH_TOKEN  — Personal access token from Netlify (User settings → Applications).
+#   NETLIFY_SITE_ID     — Site API ID (Site configuration → Site details).
+# Optional (FantasyPros login; installs Chrome only when FANTASYPROS_EMAIL is set):
+#   FANTASYPROS_EMAIL, FANTASYPROS_PASSWORD
+#
+# If the site is also connected in the Netlify UI for Git builds, disable automatic
+# builds there to avoid duplicate deploys.
+
+name: Probable pitchers → Netlify
+
+on:
+  schedule:
+    # Every hour at minute 0 (UTC). GitHub may delay scheduled runs by several minutes.
+    - cron: "0 * * * *"
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "player-scrape.py"
+      - "requirements.txt"
+      - ".github/workflows/probable-pitchers-netlify.yml"
+      - "netlify.toml"
+
+concurrency:
+  group: probable-pitchers-netlify
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect FantasyPros credentials
+        id: fp
+        env:
+          FP_EMAIL: ${{ secrets.FANTASYPROS_EMAIL }}
+        run: |
+          if [ -n "$FP_EMAIL" ]; then
+            echo "need_chrome=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "need_chrome=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Chrome
+        if: steps.fp.outputs.need_chrome == 'true'
+        id: chrome
+        uses: browser-actions/setup-chrome@v2
+        with:
+          install-dependencies: true
+          install-chromedriver: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run player scrape
+        env:
+          FANTASYPROS_EMAIL: ${{ secrets.FANTASYPROS_EMAIL }}
+          FANTASYPROS_PASSWORD: ${{ secrets.FANTASYPROS_PASSWORD }}
+        run: python player-scrape.py
+
+      - name: Stage static site
+        run: |
+          mkdir -p dist
+          cp probable-pitchers.html dist/index.html
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Deploy to Netlify
+        run: npx --yes netlify-cli deploy --dir=dist --prod
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
