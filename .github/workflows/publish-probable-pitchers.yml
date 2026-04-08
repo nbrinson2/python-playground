@@ -36,12 +36,13 @@ jobs:
             echo "need_chrome=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # Do not use install-chromedriver: Selenium 4 downloads a matching driver for the
+      # actual Chrome binary. A preinstalled chromedriver on PATH often mismatches runner Chrome.
       - name: Install Chrome (Selenium)
         if: steps.fp.outputs.need_chrome == 'true'
         uses: browser-actions/setup-chrome@v2
         with:
           install-dependencies: true
-          install-chromedriver: true
 
       - uses: actions/setup-python@v5
         with:

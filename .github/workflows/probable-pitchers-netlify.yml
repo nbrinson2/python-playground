@@ -46,13 +46,14 @@ jobs:
             echo "need_chrome=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # Do not use install-chromedriver — it can disagree with the runner's Chrome version;
+      # Selenium 4 resolves a compatible driver automatically.
       - name: Set up Chrome
         if: steps.fp.outputs.need_chrome == 'true'
         id: chrome
         uses: browser-actions/setup-chrome@v2
         with:
           install-dependencies: true
-          install-chromedriver: true
 
       - uses: actions/setup-python@v5
         with:
