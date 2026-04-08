@@ -1094,7 +1094,11 @@ if __name__ == "__main__":
 </div>
 <script>
 function makeTableSortable(table) {
-    var headers = table.querySelectorAll('th');
+    var tbody = table.tBodies[0];
+    if (!tbody) return;
+    var theadRow = table.tHead && table.tHead.rows[0];
+    if (!theadRow) return;
+    var headers = theadRow.querySelectorAll('th');
 
     function trimCell(text) {
         var t = (text || '').trim();
@@ -1129,24 +1133,19 @@ function makeTableSortable(table) {
             var direction = header.getAttribute('data-sort') || 'asc';
             direction = (direction === 'asc') ? 'desc' : 'asc';
 
-            var rows = Array.from(table.querySelectorAll('tr'));
-            var headerRow = rows.shift();
+            var rows = Array.from(tbody.querySelectorAll('tr'));
 
             rows.sort(function(rowA, rowB) {
                 var rawA = rowA.children[index] ? rowA.children[index].textContent : '';
                 var rawB = rowB.children[index] ? rowB.children[index].textContent : '';
                 return compareSortValues(trimCell(rawA), trimCell(rawB), direction);
             });
-            
-            // Clear the table
-            while (table.firstChild) {
-                table.firstChild.remove();
+
+            while (tbody.firstChild) {
+                tbody.removeChild(tbody.firstChild);
             }
-            
-            // Add the sorted rows back to the table
-            table.appendChild(headerRow);
             rows.forEach(function(row) {
-                table.appendChild(row);
+                tbody.appendChild(row);
             });
             
             // Update the sort direction
