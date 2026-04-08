@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 import requests
@@ -896,42 +897,200 @@ if __name__ == "__main__":
         html_table, df, batting_df
     )
 
-    # HTML script for sortable table
-    sortable_table_script = """
-<!DOCTYPE html>
-<html>
+    now_utc = datetime.now(timezone.utc)
+    generated_iso = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+    generated_at = now_utc.strftime("%Y-%m-%d %H:%M UTC")
+    n_pitchers = len(df.index)
+
+    page_head = f"""<!DOCTYPE html>
+<html lang="en">
 <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Probable pitchers — dashboard</title>
     <style>
-        body {
-            background-color: black;
-            color: white;
-        }
-        
-        table th {
-            cursor: pointer;
-        }
-        
-        table td, table th {
-            padding: 10px;
-        }
-
-        table tr:nth-child(even) {
-            background-color: rgba(114,111,112,0.5);
+        :root {{
+            --bg: #0d0d0f;
+            --surface: #16161a;
+            --border: #2a2a30;
+            --text: #e8e6e3;
+            --muted: #9a9691;
+            --accent: #c4a35a;
+            --legend-top: rgba(200, 50, 55, 0.65);
+            --legend-bottom: rgba(45, 160, 85, 0.65);
+        }}
+        * {{ box-sizing: border-box; }}
+        body {{
+            margin: 0;
+            padding: 1.25rem 1rem 2.5rem;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+        }}
+        .shell {{
+            max-width: 120rem;
+            margin: 0 auto;
+        }}
+        header.page-header {{
+            margin-bottom: 1.25rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }}
+        header.page-header h1 {{
+            margin: 0 0 0.35rem;
+            font-size: clamp(1.35rem, 2.5vw, 1.75rem);
+            font-weight: 650;
+            letter-spacing: -0.02em;
+        }}
+        header.page-header .tagline {{
+            margin: 0;
+            color: var(--muted);
+            font-size: 0.9rem;
+        }}
+        .meta-bar {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem 1.25rem;
+            align-items: baseline;
+            margin-bottom: 1.25rem;
+            font-size: 0.85rem;
+            color: var(--muted);
+        }}
+        .meta-bar strong {{ color: var(--text); font-weight: 600; }}
+        .meta-bar time {{ color: var(--accent); }}
+        section.legend {{
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem 1.1rem;
+            margin-bottom: 1.25rem;
+        }}
+        section.legend h2 {{
+            margin: 0 0 0.65rem;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--muted);
             font-weight: 600;
-        }
-
-        /* Top 10 team AVG (best offenses): red tint. Bottom 10: green tint. */
-        table td.batting-avg-top {
-            background-color: rgba(200, 50, 55, 0.55) !important;
-        }
-
-        table td.batting-avg-bottom {
-            background-color: rgba(45, 160, 85, 0.55) !important;
-        }
+        }}
+        .legend-grid {{
+            display: grid;
+            gap: 0.65rem 1.5rem;
+        }}
+        @media (min-width: 640px) {{
+            .legend-grid {{ grid-template-columns: 1fr 1fr; }}
+        }}
+        .legend-item {{
+            display: flex;
+            gap: 0.6rem;
+            align-items: flex-start;
+            font-size: 0.88rem;
+        }}
+        .swatch {{
+            flex-shrink: 0;
+            width: 1.1rem;
+            height: 1.1rem;
+            border-radius: 4px;
+            margin-top: 0.2rem;
+            border: 1px solid rgba(255,255,255,0.12);
+        }}
+        .swatch.top {{ background: var(--legend-top); }}
+        .swatch.bottom {{ background: var(--legend-bottom); }}
+        .swatch.neutral {{ background: rgba(114,111,112,0.45); }}
+        .table-wrap {{
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--surface);
+        }}
+        .table-wrap table {{
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }}
+        .table-wrap table th {{
+            cursor: pointer;
+            user-select: none;
+            text-align: left;
+            padding: 0.65rem 0.75rem;
+            background: #1e1e24;
+            color: #c8c4be;
+            font-weight: 600;
+            white-space: nowrap;
+            border-bottom: 1px solid var(--border);
+        }}
+        .table-wrap table th:hover {{ color: var(--text); background: #25252c; }}
+        .table-wrap table td {{
+            padding: 0.55rem 0.75rem;
+            border-bottom: 1px solid rgba(42,42,48,0.8);
+            vertical-align: middle;
+        }}
+        .table-wrap table tbody tr:nth-child(even) td {{
+            background: rgba(255,255,255,0.03);
+        }}
+        .table-wrap table tbody tr:hover td {{
+            background: rgba(196, 163, 90, 0.08);
+        }}
+        table td.batting-avg-top {{
+            background-color: rgba(200, 50, 55, 0.5) !important;
+        }}
+        table td.batting-avg-bottom {{
+            background-color: rgba(45, 160, 85, 0.5) !important;
+        }}
+        footer.page-footer {{
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+            font-size: 0.8rem;
+            color: var(--muted);
+        }}
+        footer.page-footer p {{ margin: 0 0 0.65rem; }}
+        footer.page-footer p:last-child {{ margin-bottom: 0; }}
+        footer.page-footer a {{ color: var(--accent); }}
     </style>
 </head>
 <body>
-    """ + html_table + """
+<div class="shell">
+    <header class="page-header">
+        <h1>Probable pitchers</h1>
+        <p class="tagline">Sortable grid from FantasyPros, with matchup shading vs MLB team batting average tiers.</p>
+    </header>
+    <div class="meta-bar">
+        <span><strong>{n_pitchers}</strong> pitchers in this run</span>
+        <span>Updated <time datetime="{generated_iso}">{generated_at}</time></span>
+    </div>
+    <section class="legend" aria-labelledby="legend-heading">
+        <h2 id="legend-heading">Legend</h2>
+        <div class="legend-grid">
+            <div class="legend-item">
+                <span class="swatch top" aria-hidden="true"></span>
+                <span><strong>Red cell</strong> — Opponent team is in the <strong>top 10</strong> in MLB team batting average (stronger offense; tougher matchup).</span>
+            </div>
+            <div class="legend-item">
+                <span class="swatch bottom" aria-hidden="true"></span>
+                <span><strong>Green cell</strong> — Opponent in the <strong>bottom 10</strong> by team AVG (weaker offense).</span>
+            </div>
+            <div class="legend-item">
+                <span class="swatch neutral" aria-hidden="true"></span>
+                <span><strong>Striped rows &amp; hover</strong> — Easier scanning; click any <strong>column header</strong> to sort (toggle asc/desc). Empty values sort last.</span>
+            </div>
+            <div class="legend-item">
+                <span class="swatch neutral" aria-hidden="true"></span>
+                <span><strong>Rank</strong> — FantasyPros pitcher rank tooltip text. <strong>Last 15</strong> — Composite from FantasyPros last-15 pitching stats page.</span>
+            </div>
+        </div>
+    </section>
+    <div class="table-wrap" role="region" aria-label="Probable pitchers data table">
+"""
+
+    page_script = """
+    </div>
+    <footer class="page-footer">
+        <p><strong>Disclaimer:</strong> This page is an independent, unofficial tool. It is not affiliated with, endorsed by, or sponsored by Major League Baseball (MLB), the MLBPA, or any MLB club.</p>
+        <p>Sources: FantasyPros probable pitchers &amp; last-15 stats; MLB.com team batting average (for opponent tier coloring). Generated by <code>player-scrape.py</code>.</p>
+    </footer>
+</div>
 <script>
 function makeTableSortable(table) {
     var headers = table.querySelectorAll('th');
@@ -1004,6 +1163,8 @@ window.addEventListener('DOMContentLoaded', function() {
 </body>
 </html>
 """
+
+    sortable_table_script = page_head + html_table + page_script
 
     # Write the HTML to a file
     with open("probable-pitchers.html", "w", encoding="utf-8") as f:
