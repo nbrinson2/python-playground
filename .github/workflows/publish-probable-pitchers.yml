@@ -1,0 +1,88 @@
+# Hourly scrape → static site (index.html). Deploy to Netlify and/or Cloudflare Pages when configured.
+#
+# Secrets (GitHub → Settings → Secrets and variables → Actions):
+#   FANTASYPROS_EMAIL, FANTASYPROS_PASSWORD — optional; improves FantasyPros grid when set.
+#   NETLIFY_AUTH_TOKEN, NETLIFY_SITE_ID — optional; Netlify deploy (Site settings → General → API / Site ID).
+#   CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID — optional; token needs "Cloudflare Pages — Edit".
+#
+# Variables (same menu → Variables tab):
+#   CLOUDFLARE_PAGES_PROJECT — Cloudflare Pages project name (not secret). Required for CF deploy job.
+
+name: Publish probable pitchers
+
+on:
+  schedule:
+    # Every hour at minute 0 (UTC). Change as needed.
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Chrome (Selenium)
+        uses: browser-actions/setup-chrome@v1
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build HTML
+        env:
+          FANTASYPROS_EMAIL: ${{ secrets.FANTASYPROS_EMAIL }}
+          FANTASYPROS_PASSWORD: ${{ secrets.FANTASYPROS_PASSWORD }}
+        run: |
+          mkdir -p deploy
+          python player-scrape.py
+          cp probable-pitchers.html deploy/index.html
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: probable-pitchers-site
+          path: deploy
+
+  deploy-netlify:
+    needs: scrape
+    if: ${{ secrets.NETLIFY_AUTH_TOKEN && secrets.NETLIFY_SITE_ID }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: probable-pitchers-site
+          path: site
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Deploy to Netlify (production)
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: npx --yes netlify-cli deploy --prod --dir=site --site="$NETLIFY_SITE_ID" --auth="$NETLIFY_AUTH_TOKEN" --message="publish-probable-pitchers ${{ github.run_id }}"
+
+  deploy-cloudflare:
+    needs: scrape
+    if: ${{ secrets.CLOUDFLARE_API_TOKEN && secrets.CLOUDFLARE_ACCOUNT_ID && vars.CLOUDFLARE_PAGES_PROJECT }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: probable-pitchers-site
+          path: site
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy site --project-name=${{ vars.CLOUDFLARE_PAGES_PROJECT }}
