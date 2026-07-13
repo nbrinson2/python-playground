@@ -7,6 +7,8 @@
 #
 # Variables (same menu → Variables tab):
 #   CLOUDFLARE_PAGES_PROJECT — Cloudflare Pages project name (not secret). Required for CF deploy.
+#   PROBABLE_PITCHERS_SITE_URL — public site origin (no trailing slash), e.g. https://mlb-pp.netlify.app.
+#     Used for HTML canonical / Open Graph URLs. Optional but recommended for SEO.
 
 name: Publish probable pitchers
 
@@ -56,6 +58,7 @@ jobs:
         env:
           FANTASYPROS_EMAIL: ${{ secrets.FANTASYPROS_EMAIL }}
           FANTASYPROS_PASSWORD: ${{ secrets.FANTASYPROS_PASSWORD }}
+          PROBABLE_PITCHERS_SITE_URL: ${{ vars.PROBABLE_PITCHERS_SITE_URL }}
         run: |
           mkdir -p deploy
           python player-scrape.py

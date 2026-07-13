@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import re
@@ -903,12 +904,62 @@ if __name__ == "__main__":
     generated_at = now_utc.strftime("%Y-%m-%d %H:%M UTC")
     n_pitchers = len(df.index)
 
+    page_title = "MLB Probable Pitchers — Today's Starting Pitchers & Matchups"
+    page_description = (
+        "MLB probable pitchers for today's games: sortable starting pitcher list with "
+        "last-15-days pitching stats and opponent batting average matchup shading. "
+        f"Updated {generated_at}."
+    )
+    # Optional absolute URL for canonical / Open Graph (e.g. https://yoursite.example).
+    site_url = (os.environ.get("PROBABLE_PITCHERS_SITE_URL") or "").rstrip("/")
+    canonical_link = (
+        f'\n    <link rel="canonical" href="{site_url}/">' if site_url else ""
+    )
+    og_url_meta = (
+        f'\n    <meta property="og:url" content="{site_url}/">' if site_url else ""
+    )
+    json_ld = {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "name": page_title,
+        "description": page_description,
+        "dateModified": generated_iso,
+        "about": {
+            "@type": "Thing",
+            "name": "MLB probable pitchers",
+        },
+        "keywords": [
+            "MLB probable pitchers",
+            "probable pitchers",
+            "MLB starting pitchers",
+            "today's pitchers",
+            "pitcher matchups",
+        ],
+    }
+    if site_url:
+        json_ld["url"] = f"{site_url}/"
+    json_ld_script = json.dumps(json_ld, ensure_ascii=True)
+
     page_head = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Probable pitchers — dashboard</title>
+    <title>{page_title}</title>
+    <meta name="description" content="{page_description}">
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
+    <meta name="keywords" content="MLB probable pitchers, probable pitchers, MLB starting pitchers, today's pitchers, pitcher matchups, fantasy baseball">
+    <meta name="author" content="player-scrape.py">
+    <meta name="updated-time" content="{generated_iso}">{canonical_link}
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="{page_title}">
+    <meta property="og:description" content="{page_description}">
+    <meta property="og:site_name" content="MLB Probable Pitchers">{og_url_meta}
+    <meta property="og:locale" content="en_US">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="{page_title}">
+    <meta name="twitter:description" content="{page_description}">
+    <script type="application/ld+json">{json_ld_script}</script>
     <style>
         :root {{
             --bg: #0d0d0f;
@@ -1054,8 +1105,8 @@ if __name__ == "__main__":
 <body>
 <div class="shell">
     <header class="page-header">
-        <h1>Probable pitchers</h1>
-        <p class="tagline">Sortable probable-pitchers grid. <strong>Last 15</strong> uses the last <strong>15 days</strong> of pitching stats; red/green matchup shading ranks teams by batting average over the <strong>last 7 days</strong> (MLB.com).</p>
+        <h1>MLB Probable Pitchers</h1>
+        <p class="tagline">Today's MLB starting pitchers in a sortable grid. <strong>Last 15</strong> uses the last <strong>15 days</strong> of pitching stats; red/green matchup shading ranks teams by batting average over the <strong>last 7 days</strong> (MLB.com).</p>
     </header>
     <div class="meta-bar">
         <span><strong>{n_pitchers}</strong> pitchers in this run</span>
