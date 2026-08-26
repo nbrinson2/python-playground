@@ -577,8 +577,9 @@ def _last_15_compute_from_cells(cells):
     l_data = float(cells[15].text)
     g_data = float(cells[13].text)
     whip_data = float(cells[8].text)
+    ip_per_g = (ip_data / g_data) if g_data else 0.0
     return round(
-        k_data / bb_data - era_data - whip_data - h_data - hr_data + w_data - l_data + (ip_data/g_data) + qs_data
+        k_data / bb_data - era_data - whip_data - h_data - hr_data + w_data - l_data + ip_per_g + qs_data
     ) + 100
 
 
@@ -634,7 +635,7 @@ def get_last_15_data(player_names, session=None, player_slugs=None):
                 )
         try:
             results.append(_last_15_compute_from_cells(cells))
-        except (ValueError, IndexError) as exc:
+        except (ValueError, IndexError, ZeroDivisionError) as exc:
             LOG.warning("Last-15 parse failed for %r: %s", player_name, exc)
             results.append('')
             missing.append(player_name)
