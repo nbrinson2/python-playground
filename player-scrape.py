@@ -17,6 +17,30 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 LOG = logging.getLogger("player_scrape")
 
+# Full probable-pitchers grid is ~30 games × 2 starters plus extras; a tiny count
+# usually means FantasyPros returned a login/shell page instead of the table.
+DEFAULT_MIN_PROBABLE_PITCHERS = 45
+
+
+def _min_probable_pitchers():
+    """Minimum auto-discovered pitcher rows required before publishing HTML.
+
+    Override with ``PROBABLE_PITCHERS_MIN_ROWS`` (integer). Set to ``0`` to skip
+    the check (local debugging only).
+    """
+    raw = os.environ.get("PROBABLE_PITCHERS_MIN_ROWS")
+    if raw is None or not str(raw).strip():
+        return DEFAULT_MIN_PROBABLE_PITCHERS
+    try:
+        return int(raw)
+    except ValueError:
+        LOG.warning(
+            "Invalid PROBABLE_PITCHERS_MIN_ROWS=%r; using %d",
+            raw,
+            DEFAULT_MIN_PROBABLE_PITCHERS,
+        )
+        return DEFAULT_MIN_PROBABLE_PITCHERS
+
 
 def configure_player_scrape_logging(log_path=None, *, level=logging.INFO):
     """Write player-scrape diagnostics to a log file (UTF-8).
@@ -424,6 +448,12 @@ def sign_in_fantasypros(
         options.add_argument("--window-size=1280,900")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
+        # Default headless Chrome advertises itself as automated, which the sign-in
+        # form's bot check rejects (notably from CI IP ranges).
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_argument(
+            "--user-agent=" + _fp_probable_pitchers_headers()["User-Agent"]
+        )
         driver = webdriver.Chrome(options=options)
 
     retained = False
@@ -726,9 +756,10 @@ def scrape_player_data(
     ``requests`` (probable pitchers + last-15 stats). Pass ``session`` to reuse an
     existing authenticated session.
 
-    If ``sign_in`` is ``None``, sign-in is used only when both email and password resolve
-    to non-empty values (args or env). Set ``sign_in=False`` to force an anonymous fetch
-    even if env vars are set.
+    If ``sign_in`` is ``None``, sign-in is attempted only when both email and password
+    resolve to non-empty values (args or env), and a failed sign-in falls back to an
+    anonymous fetch. Set ``sign_in=False`` to force an anonymous fetch even if env vars
+    are set, or ``sign_in=True`` to make a sign-in failure fatal.
     """
     resolved_email = email if email is not None else os.environ.get("FANTASYPROS_EMAIL")
     resolved_password = (
@@ -753,12 +784,22 @@ def scrape_player_data(
     )
 
     if session is None and use_sign_in:
-        session = fantasypros_requests_session(
-            resolved_email,
-            resolved_password,
-            headless=headless,
-            timeout=sign_in_timeout,
-        )
+        try:
+            session = fantasypros_requests_session(
+                resolved_email,
+                resolved_password,
+                headless=headless,
+                timeout=sign_in_timeout,
+            )
+        except Exception:
+            if sign_in:
+                raise
+            # Auto sign-in is an enhancement, not a requirement: captcha/bot checks and
+            # missing Chrome must not stop the anonymous fetch (e.g. on CI runners).
+            LOG.warning(
+                "Sign-in failed; continuing with anonymous fetch", exc_info=True
+            )
+            session = None
 
     url = "https://www.fantasypros.com/mlb/probable-pitchers.php"
     h = _fp_probable_pitchers_headers()
@@ -792,14 +833,19 @@ def scrape_player_data(
             raise ValueError(
                 "No pitchers found on probable-pitchers page (empty table or HTML changed)."
             )
-        if len(entries) < 45:
-            LOG.warning(
-                "Only %d distinct pitchers parsed — response may be a partial shell "
-                "(full grid is `.game-tables`); try sign-in or browser fetch for full list",
+        min_rows = _min_probable_pitchers()
+        if min_rows and len(entries) < min_rows:
+            LOG.error(
+                "Only %d distinct pitchers parsed (need >= %d) — response may be a "
+                "partial shell (full grid is `.game-tables`)",
                 len(entries),
+                min_rows,
             )
-        else:
-            LOG.info("Parsed %d distinct pitchers from probable-pitchers grid", len(entries))
+            raise ValueError(
+                f"Probable-pitchers scrape looks truncated: {len(entries)} rows "
+                f"(minimum {min_rows}). Refusing to publish a partial list."
+            )
+        LOG.info("Parsed %d distinct pitchers from probable-pitchers grid", len(entries))
         fpid_to_index = {e["fpid"]: i for i, e in enumerate(entries)}
         player_names = [e["name"] for e in entries]
         last_15_lookup = [e["full_name"] for e in entries]
@@ -894,6 +940,19 @@ if __name__ == "__main__":
 
     print(df)
 
+    min_rows = _min_probable_pitchers()
+    n_pitchers = len(df.index)
+    if min_rows and n_pitchers < min_rows:
+        LOG.error(
+            "Refusing to write probable-pitchers.html: %d rows (minimum %d)",
+            n_pitchers,
+            min_rows,
+        )
+        raise SystemExit(
+            f"Probable-pitchers scrape looks truncated: {n_pitchers} rows "
+            f"(minimum {min_rows}). HTML was not written."
+        )
+
     # Convert the DataFrame to HTML; tint matchup cells by opponent team MLB AVG tier.
     html_table = df.to_html(index=False)
     html_table = add_team_batting_highlights_to_pitchers_html(
@@ -903,7 +962,6 @@ if __name__ == "__main__":
     now_utc = datetime.now(timezone.utc)
     generated_iso = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
     generated_at = now_utc.strftime("%Y-%m-%d %H:%M UTC")
-    n_pitchers = len(df.index)
 
     page_title = "MLB Probable Pitchers — Today's Starting Pitchers & Matchups"
     page_description = (
